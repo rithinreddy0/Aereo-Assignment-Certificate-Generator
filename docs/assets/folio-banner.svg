@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">Folio — recognition, delivered in bulk</title>
+  <desc id="desc">An API-first certificate generator with three PDF designs, durable jobs, and per-recipient results. Built with FastAPI, SQLite, and ReportLab.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f6f8f2"/><stop offset="1" stop-color="#e8eee2"/></linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#244b3d"/><stop offset="1" stop-color="#16362e"/></linearGradient>
+  </defs>
+  <rect width="1280" height="420" rx="20" fill="url(#paper)"/>
+  <path d="M831 0h429a20 20 0 0 1 20 20v380a20 20 0 0 1-20 20H786Z" fill="url(#green)"/>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <rect x="48" y="40" width="48" height="48" rx="13" fill="#244b3d"/>
+    <text x="59" y="75" fill="white" font-size="34" font-weight="700">f.</text>
+    <text x="110" y="75" fill="#244b3d" font-size="33" font-weight="650">folio</text>
+    <text x="48" y="129" fill="#5e7865" font-size="12" font-weight="700" letter-spacing="3">BULK CERTIFICATE GENERATOR</text>
+    <text x="45" y="189" fill="#263b32" font-size="49" font-weight="600" letter-spacing="-1.5">Recognition, delivered.</text>
+    <text x="48" y="235" fill="#617166" font-size="19">One request. Personalized PDFs. Clear results for every recipient.</text>
+    <g font-size="12" font-weight="600">
+      <rect x="48" y="270" width="100" height="32" rx="16" fill="#244b3d"/><text x="72" y="291" fill="white">FastAPI</text>
+      <rect x="158" y="270" width="96" height="32" rx="16" fill="#dde7d8"/><text x="181" y="291" fill="#244b3d">SQLite</text>
+      <rect x="264" y="270" width="112" height="32" rx="16" fill="#dde7d8"/><text x="284" y="291" fill="#244b3d">ReportLab</text>
+      <rect x="386" y="270" width="120" height="32" rx="16" fill="#dde7d8"/><text x="407" y="291" fill="#244b3d">Python 3.11+</text>
+    </g>
+    <path d="M48 332H728" stroke="#d3decc"/>
+    <text x="48" y="367" fill="#244b3d" font-size="14" font-weight="600">Durable jobs</text><circle cx="178" cy="362" r="2" fill="#83947b"/>
+    <text x="198" y="367" fill="#244b3d" font-size="14" font-weight="600">Isolated failures</text><circle cx="346" cy="362" r="2" fill="#83947b"/>
+    <text x="366" y="367" fill="#244b3d" font-size="14" font-weight="600">PDF + ZIP downloads</text>
+    <g transform="translate(901 47)">
+      <rect x="14" y="14" width="292" height="205" rx="10" fill="#132f27" opacity=".7"/>
+      <rect width="292" height="205" rx="10" fill="#fcfaf5"/>
+      <rect x="13" y="13" width="266" height="179" fill="none" stroke="#b18b43"/>
+      <text x="146" y="42" text-anchor="middle" fill="#102b3f" font-size="10" font-weight="700" letter-spacing="1">YOUR ORGANIZATION</text>
+      <path d="M128 55h36" stroke="#b18b43"/>
+      <text x="146" y="83" text-anchor="middle" fill="#102b3f" font-size="17" font-weight="650">Certificate of Completion</text>
+      <text x="146" y="110" text-anchor="middle" fill="#65746d" font-size="7" letter-spacing="1">PROUDLY PRESENTED TO</text>
+      <text x="146" y="136" text-anchor="middle" fill="#244b3d" font-size="21" font-weight="700">Your next achiever</text>
+      <text x="146" y="160" text-anchor="middle" fill="#65746d" font-size="9">A recognition worth keeping.</text>
+      <path d="M116 179h60" stroke="#c8cebd"/>
+    </g>
+    <text x="906" y="295" fill="#d9e4d6" font-size="11" letter-spacing="2">SMALL STACK. CLEAR CONTRACT.</text>
+    <text x="906" y="330" fill="white" font-size="26" font-weight="600">3 designs · 1 bulk API</text>
+    <text x="906" y="362" fill="#c1d2c1" font-size="14">Classic / Modern / Minimal</text>
+  </g>
+</svg>
