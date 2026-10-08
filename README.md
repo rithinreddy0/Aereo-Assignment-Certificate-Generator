@@ -13,6 +13,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#product-preview">Product preview</a> ·
   <a href="#submit-a-generation-request">API guide</a> ·
+  <a href="#learn-the-backend">Learn the backend</a> ·
   <a href="#architecture-and-processing-flow">Architecture</a> ·
   <a href="#testing-and-quality-checks">Testing</a> ·
   <a href="#learning-and-future-scope">Roadmap</a>
@@ -44,6 +45,23 @@ PDF generation service.
 
 > **Deployment scope:** designed for one machine and one PDF worker. This is not a distributed
 > queue, a multi-tenant SaaS platform, or a claim of unlimited certificate capacity.
+
+## Learn the backend
+
+Choose the documentation that fits your goal:
+
+- [Technical guide](docs/TECHNICAL_GUIDE.md): every direct library, standard-library tools,
+  browser/development dependencies, database structure, request-to-PDF flow, and interview explanations.
+- [Detailed API reference](docs/API_REFERENCE.md): every public endpoint, headers, all input/output
+  fields, pagination, status meanings, complete request/response examples, error bodies, and a
+  copy-ready PowerShell workflow that polls before downloading.
+- [Interactive documentation](http://127.0.0.1:8000/docs): run actual requests after starting locally.
+
+The main responsibilities are deliberately separated: **FastAPI/Uvicorn** handle HTTP,
+**Pydantic/email-validator** validate inputs, **SQLite** persists jobs, **filelock** coordinates
+the worker/archive builder, and **ReportLab** creates PDFs. **PDF.js** only previews finished PDFs;
+**Swagger UI** provides API exploration. **pytest, HTTPX, pypdf, Ruff, and Prettier** support
+verification and development. No React build, Celery, Redis, or paid PDF service is required.
 
 ## Product preview
 
@@ -503,7 +521,7 @@ Do not copy only the main database file while WAL writes are active.
 .\.venv\Scripts\python.exe -m ruff format --check .
 ```
 
-**Latest local verification: 46 tests passed**, with lint and formatting checks passing.
+**Latest local verification: 50 tests passed**, with lint and formatting checks passing.
 Tests use isolated temporary databases, not your development data. They cover creation, partial
 progress, envelope/recipient validation, duplicate email handling, failure isolation, real PDF
 contents, accented names, ZIP retrieval/cache, missing files, pagination, authentication, body/batch
@@ -537,7 +555,7 @@ measurements, not production throughput guarantees.
 Verified locally on Windows with Python 3.11.4 on 8 October 2026:
 
 - The initial backend benchmark was accompanied by passing tests and quality checks. The current
-  expanded suite has 46 passing tests, as described above.
+  expanded suite has 50 passing tests, as described above.
 - 1,000 actual PDFs generated with zero failures in 127.273 seconds with allocation tracing
   enabled (7.86 certificates/second); submission took 0.413 seconds.
 - Peak traced Python allocations were 1.43 MiB; the PDFs occupied 40.11 MiB.
@@ -628,7 +646,7 @@ PDF.js is loaded only when opening a preview. It renders one certificate page, c
 at 2x, and releases the document when the viewer closes. Native PDF/ZIP downloads remain streamed.
 The frontend has no runtime npm installation requirement, including inside Docker.
 
-Verification: all 46 tests passed after adding templates and the improved docs, including preset
+Verification: all 50 tests passed after adding templates and the expanded docs, including preset
 generation, unknown-template rejection, legacy jobs/hashes, and the OpenAPI contract. A browser walkthrough
 verified example submission, live completion, CSV parsing (quoted commas and accented names),
 isolated invalid-recipient results, attention filtering, grid/list layouts, and actual PDF rendering.

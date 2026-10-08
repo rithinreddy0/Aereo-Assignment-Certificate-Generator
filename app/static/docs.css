@@ -1,3 +1,80 @@
+.processing-flow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 25px 0 16px;
+}
+.processing-flow span {
+  flex: 1;
+  background: #eaf0e7;
+  padding: 16px;
+  border: 1px solid #dce5d7;
+  border-radius: 9px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.processing-flow b {
+  display: block;
+  color: var(--green);
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+.processing-flow i {
+  color: #819579;
+  font-style: normal;
+}
+.guide-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+.rules small {
+  color: var(--muted);
+}
+.request-docs {
+  display: grid;
+  gap: 12px;
+}
+.request-docs details {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.request-docs summary {
+  padding: 18px 22px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--green);
+}
+.request-docs summary:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: -4px;
+}
+.request-docs details[open] summary {
+  border-bottom: 1px solid var(--line);
+  background: #f1f5ed;
+}
+.detail-content {
+  padding: 6px 22px 12px;
+  color: var(--muted);
+}
+.detail-content ul {
+  padding-left: 20px;
+}
+.detail-content li {
+  margin-bottom: 8px;
+}
+@media (max-width: 700px) {
+  .processing-flow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .processing-flow i {
+    text-align: center;
+    transform: rotate(90deg);
+  }
+}
 :root {
   --green: #244b3d;
   --ink: #263b32;

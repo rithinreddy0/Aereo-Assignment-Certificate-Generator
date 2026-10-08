@@ -158,14 +158,16 @@ class JobPage(BaseModel):
 
 
 class RecipientView(BaseModel):
-    id: str
-    index: int
+    id: str = Field(description="Recipient UUID; also the certificate ID used in PDF URLs.")
+    index: int = Field(description="Zero-based position in the original submitted recipient list.")
     name: str | None
     email: str | None
     reference: str | None
     status: RecipientStatus
-    error: str | None
-    download_url: str | None
+    error: str | None = Field(description="Per-row validation/render error, or null on success.")
+    download_url: str | None = Field(
+        description="Relative PDF download path for COMPLETED rows only."
+    )
 
 
 class RecipientPage(BaseModel):
@@ -173,3 +175,28 @@ class RecipientPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class APIErrorResponse(BaseModel):
+    detail: str | list[dict[str, Any]] = Field(
+        description="Application error message, or a list of framework validation errors."
+    )
+
+
+# These are documentation examples, not default recipient data submitted by the application.
+_valid_example = JobCreate.model_config["json_schema_extra"]["examples"][0]
+JOB_REQUEST_EXAMPLES = {
+    "all-valid": {
+        "summary": "Two valid recipients, Modern template",
+        "description": "Both rows queue for PDF generation; run the separate worker.",
+        "value": _valid_example,
+    },
+    "mixed-results": {
+        "summary": "Two valid recipients and one invalid row",
+        "description": "The blank name is INVALID; valid recipients still generate.",
+        "value": {
+            **_valid_example,
+            "recipients": [*_valid_example["recipients"], {"name": ""}],
+        },
+    },
+}

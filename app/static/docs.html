@@ -13,8 +13,10 @@
         ><span>f.</span> folio <small>/ developer docs</small></a
       >
       <nav aria-label="Documentation navigation">
-        <a href="#quickstart">Quick start</a><a href="#contract">API rules</a
-        ><a href="#reference">API explorer</a><a href="/">Open app ↗</a>
+        <a href="#quickstart">Quick start</a
+        ><a href="#understand">How it works</a>
+        <a href="#payload">Request fields</a><a href="#contract">API rules</a>
+        <a href="#reference">API explorer</a><a href="/">Open app ↗</a>
       </nav>
     </header>
     <main>
@@ -108,6 +110,295 @@
               all successful PDFs in a ZIP.</small
             >
           </article>
+        </div>
+      </section>
+      <section id="understand" class="guide-section">
+        <div class="section-title">
+          <span class="eyebrow">UNDERSTAND THE BACKEND</span>
+          <h2>A small stack. A job you can follow.</h2>
+          <p>
+            The API accepts work; the worker performs it. These are separate
+            Python processes sharing one SQLite database and data directory.
+          </p>
+        </div>
+        <div class="rules">
+          <article>
+            <h3>HTTP &amp; validation</h3>
+            <p>
+              <b>Uvicorn</b> runs the server. <b>FastAPI</b> maps URLs to Python
+              functions and exposes OpenAPI. <b>Starlette</b> provides
+              underlying web responses and static-file support.
+              <b>Pydantic</b> checks typed inputs;
+              <b>email-validator</b> validates email format, not mailbox
+              ownership.
+            </p>
+            <small
+              >Code: <code>app/main.py</code> and
+              <code>app/schemas.py</code>.</small
+            >
+          </article>
+          <article>
+            <h3>Persistence &amp; coordination</h3>
+            <p>
+              <b>SQLite</b>, through Python's built-in <code>sqlite3</code>,
+              stores jobs and recipient outcomes. Short transactions and indexes
+              keep polling practical. <b>filelock</b> allows one worker per data
+              directory and prevents competing ZIP builders.
+            </p>
+            <small
+              >Code: <code>app/db.py</code>, <code>app/service.py</code>, and
+              <code>app/worker.py</code>.</small
+            >
+          </article>
+          <article>
+            <h3>PDF creation &amp; preview</h3>
+            <p>
+              <b>ReportLab</b> draws vector A4 landscape certificates, embeds
+              fonts, wraps long text, and writes PDFs atomically.
+              <b>PDF.js</b> only displays those finished files in the browser.
+              Classic, Modern, and Minimal share the same generation pipeline.
+            </p>
+            <small
+              >Code: <code>app/renderer.py</code>,
+              <code>app/templates.py</code>, and
+              <code>app/static/app.js</code>.</small
+            >
+          </article>
+          <article>
+            <h3>Testing &amp; documentation</h3>
+            <p>
+              <b>pytest</b> runs tests; <b>HTTPX</b> supports API calls in
+              tests; <b>pypdf</b> checks actual PDF text/pages.
+              <b>Ruff</b> formats/lints Python. <b>Swagger UI</b> powers the
+              explorer below; <b>Prettier</b> formats frontend/docs source. Node
+              is needed only to update development assets.
+            </p>
+            <small
+              >No Celery, Redis, React build, or paid PDF service is
+              required.</small
+            >
+          </article>
+        </div>
+        <div class="processing-flow" aria-label="Batch processing flow">
+          <span><b>1. Submit</b>JSON &amp; recipient validation</span><i>→</i>
+          <span><b>2. Persist</b>Job + rows in SQLite</span><i>→</i>
+          <span><b>3. Generate</b>One recipient at a time</span><i>→</i>
+          <span><b>4. Retrieve</b>Progress, PDF &amp; ZIP</span>
+        </div>
+        <p class="guide-note">
+          A worker restart requeues interrupted PROCESSING rows. A crash after
+          writing a PDF but before committing success can regenerate that PDF at
+          its stable UUID path. This is at-least-once processing, not an
+          exactly-once filesystem/database transaction.
+        </p>
+      </section>
+      <section id="payload" class="guide-section">
+        <div class="section-title">
+          <span class="eyebrow">REQUEST &amp; RESPONSE GUIDE</span>
+          <h2>Know exactly what to send.</h2>
+          <p>
+            <code>POST /api/jobs</code> needs two top-level fields:
+            <code>certificate</code> and a nonempty
+            <code>recipients</code> list. Unknown fields are rejected. Select an
+            example in the explorer to try either a fully valid batch or
+            isolated row failures.
+          </p>
+        </div>
+        <div class="request-docs">
+          <details open>
+            <summary>Shared certificate fields</summary>
+            <div class="detail-content">
+              <ul>
+                <li>
+                  <code>organization</code> — required issuing organization.
+                </li>
+                <li><code>course</code> — required course/event title.</li>
+                <li><code>signatory</code> — required printed issuer name.</li>
+                <li>
+                  <code>issued_on</code> — required real calendar date; send
+                  <code>YYYY-MM-DD</code>.
+                </li>
+                <li>
+                  <code>title</code> — optional; defaults to Certificate of
+                  Completion.
+                </li>
+                <li>
+                  <code>signatory_role</code> — optional; defaults to Program
+                  Director.
+                </li>
+                <li>
+                  <code>template</code> — optional classic / modern / minimal;
+                  defaults to classic.
+                </li>
+              </ul>
+              <p>
+                All shared text fields are trimmed, 1–120 characters, with font
+                coverage checked before a job is accepted. One design applies to
+                every recipient.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Recipient fields &amp; row validation</summary>
+            <div class="detail-content">
+              <ul>
+                <li>
+                  <code>name</code> — required string, 1–120 trimmed characters.
+                </li>
+                <li>
+                  <code>email</code> — optional valid address or null. Omit if
+                  unavailable; an empty string is invalid. Duplicate non-null
+                  addresses are invalid within the job, ignoring case.
+                </li>
+                <li>
+                  <code>reference</code> — optional string or null, up to 80
+                  characters; printed on the PDF.
+                </li>
+              </ul>
+              <p>
+                Invalid rows retain their original zero-based index.
+                Structurally invalid input is INVALID; unsupported recipient
+                font glyphs become FAILED during rendering. Other rows continue.
+                Email is metadata; certificates are not emailed.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Headers, limits &amp; identifiers</summary>
+            <div class="detail-content">
+              <ul>
+                <li>
+                  <code>Content-Type: application/json</code> for submissions.
+                </li>
+                <li>
+                  <code>X-API-Key</code> when CERT_API_KEY is configured; use
+                  Authorize below.
+                </li>
+                <li>
+                  <code>Idempotency-Key</code> is optional for POST jobs; 1–128
+                  characters. An identical retry returns the existing job;
+                  changed data returns 409. Use a fresh key for new work.
+                </li>
+                <li>
+                  Default limits: 10,000 recipients and 8 MiB body bytes. Both
+                  apply; the hard schema cap is 100,000 rows.
+                </li>
+                <li>
+                  <code>job_id</code> is the batch UUID. A recipient's
+                  <code>id</code> is the certificate UUID. Invalid syntax gives
+                  422; unknown valid IDs give 404.
+                </li>
+              </ul>
+            </div>
+          </details>
+          <details>
+            <summary>Read a job response correctly</summary>
+            <div class="detail-content">
+              <ul>
+                <li><code>total</code> — every submitted recipient row.</li>
+                <li><code>succeeded</code> — completed PDFs.</li>
+                <li>
+                  <code>failed</code> — all unsuccessful outcomes, including
+                  invalid input.
+                </li>
+                <li>
+                  <code>invalid</code> — subset of failed; do not add it again.
+                </li>
+                <li><code>pending</code> — rows without a final outcome.</li>
+                <li>
+                  <code>progress_percent</code> — processed outcomes / total ×
+                  100, rounded to two decimals.
+                </li>
+                <li>
+                  <code>created_at</code> and <code>finished_at</code> — UTC ISO
+                  timestamps; finished_at is null until terminal.
+                </li>
+                <li>
+                  <code>certificate</code> — normalized shared fields and
+                  design.
+                </li>
+              </ul>
+              <p>
+                202 means accepted. 100% means every row has an outcome, not
+                that all succeeded. An idempotent retry can return an
+                already-finished job, still with HTTP 202.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>Pagination, preview &amp; download behavior</summary>
+            <div class="detail-content">
+              <ul>
+                <li>
+                  Job history: newest first, limit 1–100 (default 25), offset ≥
+                  0.
+                </li>
+                <li>
+                  Recipients: input order, limit 1–500 (default 100), offset ≥
+                  0. Filter by status or attention=true, not both. Page total
+                  counts matching rows.
+                </li>
+                <li>
+                  Only COMPLETED rows have a relative download_url. Add it to
+                  the base URL. A ready individual PDF is available before its
+                  batch finishes.
+                </li>
+                <li>
+                  Preview returns actual application/pdf bytes inline; download
+                  returns an attachment.
+                </li>
+                <li>
+                  ZIP requires pending = 0 and at least one success; it omits
+                  failures. UUID filenames avoid duplicate-name collisions.
+                  There is no ZIP error manifest.
+                </li>
+                <li>
+                  The first ZIP request builds on disk; later requests reuse it.
+                  The lock waits up to 60 seconds before 503. Allow appropriate
+                  client timeouts.
+                </li>
+              </ul>
+            </div>
+          </details>
+          <details>
+            <summary>Common mistakes &amp; troubleshooting</summary>
+            <div class="detail-content">
+              <ul>
+                <li>
+                  Stuck QUEUED: check the worker terminal and that both
+                  processes share CERT_DATA_DIR.
+                </li>
+                <li>
+                  Bad shared fields: fix the request's 422 detail rather than
+                  expecting per-row recovery.
+                </li>
+                <li>
+                  All rows invalid: FAILED at 100% is correct; there is no ZIP.
+                </li>
+                <li>
+                  409 after retry: inspect detail. A reused key with changed
+                  data differs from a file that is not ready.
+                </li>
+                <li>
+                  Results missing: request the next page or remove filters.
+                </li>
+                <li>
+                  410: inspect storage; a missing PDF is not a live-HTML
+                  formatting problem.
+                </li>
+                <li>
+                  No cancellation, deletion, email dispatch, or
+                  certificate-verification endpoint is implemented.
+                </li>
+              </ul>
+              <p>
+                Application errors usually have a string detail; framework
+                validation errors have a list with location/type/message. Full
+                repository guides: docs/API_REFERENCE.md and
+                docs/TECHNICAL_GUIDE.md.
+              </p>
+            </div>
+          </details>
         </div>
       </section>
       <section id="contract" class="guide-section">

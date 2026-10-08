@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi import Body, Cookie, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
@@ -15,7 +15,15 @@ from filelock import Timeout
 
 from app.config import Settings
 from app.db import Database
-from app.schemas import JobCreate, JobPage, JobView, RecipientPage, RecipientStatus
+from app.schemas import (
+    JOB_REQUEST_EXAMPLES,
+    APIErrorResponse,
+    JobCreate,
+    JobPage,
+    JobView,
+    RecipientPage,
+    RecipientStatus,
+)
 from app.service import build_archive, create_job, get_job, job_view, recipient_view
 from app.templates import TEMPLATES, TemplateCatalogue
 
@@ -162,6 +170,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     secured = [Depends(authenticate)]
+    auth_errors = {
+        401: {
+            "model": APIErrorResponse,
+            "description": "Missing or invalid API key when CERT_API_KEY is configured.",
+        }
+    }
+    unknown_job = {404: {"model": APIErrorResponse, "description": "Unknown job UUID."}}
 
     @app.get(
         "/api/templates",
@@ -169,6 +184,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dependencies=secured,
         tags=["Templates"],
         summary="List available certificate templates",
+        responses={
+            **auth_errors,
+            200: {
+                "content": {
+                    "application/json": {
+                        "example": TemplateCatalogue(items=list(TEMPLATES)).model_dump()
+                    }
+                }
+            },
+        },
     )
     def template_catalogue():
         """Use an item's **id** as `certificate.template` when creating a job.
@@ -178,10 +203,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """
         return TemplateCatalogue(items=list(TEMPLATES))
 
-    @app.get("/api/jobs", response_model=JobPage, dependencies=secured, tags=["Jobs"])
+    @app.get(
+        "/api/jobs",
+        response_model=JobPage,
+        dependencies=secured,
+        tags=["Jobs"],
+        summary="List generation jobs",
+        responses=auth_errors,
+    )
     def job_history(
-        limit: Annotated[int, Query(ge=1, le=100)] = 25,
-        offset: Annotated[int, Query(ge=0)] = 0,
+        limit: Annotated[int, Query(ge=1, le=100, description="Maximum jobs in this page.")] = 25,
+        offset: Annotated[int, Query(ge=0, description="Number of newest-first jobs to skip.")] = 0,
     ):
         """List batches newest first with limit/offset pagination and the selected template."""
         with db.connect() as connection:
@@ -209,17 +241,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tags=["Jobs"],
         summary="Create a bulk certificate job",
         responses={
-            401: {"description": "Missing or invalid API key when authentication is enabled."},
-            409: {"description": "Idempotency-Key was used for a different payload."},
-            413: {"description": "JSON body exceeds the configured byte limit (default 8 MiB)."},
+            **auth_errors,
+            409: {
+                "model": APIErrorResponse,
+                "description": "Key was used for a different payload.",
+            },
+            413: {
+                "model": APIErrorResponse,
+                "description": "Body exceeds its limit (default 8 MiB).",
+            },
             422: {
-                "description": "Invalid certificate/template, empty batch, or excessive recipients."
+                "model": APIErrorResponse,
+                "description": "Invalid certificate/template, empty batch, or too many recipients.",
             },
         },
     )
     def submit_job(
-        payload: JobCreate,
-        idempotency_key: Annotated[str | None, Header(min_length=1, max_length=128)] = None,
+        payload: Annotated[JobCreate, Body(openapi_examples=JOB_REQUEST_EXAMPLES)],
+        idempotency_key: Annotated[
+            str | None,
+            Header(
+                min_length=1,
+                max_length=128,
+                description="Optional safe-retry key. Same payload returns the original job; "
+                "different data/template with the same key returns 409. Keys do not expire.",
+            ),
+        ] = None,
     ):
         """Persist the batch and return immediately; generation runs in the separate worker.
 
@@ -238,7 +285,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
-    @app.get("/api/jobs/{job_id}", response_model=JobView, dependencies=secured, tags=["Jobs"])
+    @app.get(
+        "/api/jobs/{job_id}",
+        response_model=JobView,
+        dependencies=secured,
+        tags=["Jobs"],
+        summary="Track job status and progress",
+        responses={**auth_errors, **unknown_job},
+    )
     def job_information(job_id: UUID):
         """Poll approximately every two seconds until `pending == 0`.
 
@@ -253,13 +307,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response_model=RecipientPage,
         dependencies=secured,
         tags=["Certificates"],
+        summary="List recipient outcomes",
+        responses={
+            **auth_errors,
+            **unknown_job,
+            422: {
+                "model": APIErrorResponse,
+                "description": "Invalid query/UUID, or attention combined with status.",
+            },
+        },
     )
     def job_certificates(
         job_id: UUID,
-        limit: Annotated[int, Query(ge=1, le=500)] = 100,
-        offset: Annotated[int, Query(ge=0)] = 0,
-        status: RecipientStatus | None = None,
-        attention: bool = False,
+        limit: Annotated[
+            int, Query(ge=1, le=500, description="Maximum matching rows per page.")
+        ] = 100,
+        offset: Annotated[
+            int, Query(ge=0, description="Matching rows to skip, in input order.")
+        ] = 0,
+        status: Annotated[
+            RecipientStatus | None,
+            Query(description="Exact recipient state. Cannot be combined with attention=true."),
+        ] = None,
+        attention: Annotated[
+            bool, Query(description="Only INVALID and FAILED rows. Mutually exclusive with status.")
+        ] = False,
     ):
         """Paginated per-recipient results in submission order (zero-based index).
 
@@ -315,13 +387,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tags=["Downloads"],
         response_class=FileResponse,
         responses={
+            **auth_errors,
             200: {
                 "description": "Completed certificate PDF.",
                 "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}},
             },
-            404: {"description": "Unknown certificate ID."},
-            409: {"description": "Certificate is not completed."},
-            410: {"description": "Generated file is missing from storage."},
+            404: {"model": APIErrorResponse, "description": "Unknown certificate ID."},
+            409: {"model": APIErrorResponse, "description": "Certificate is not completed."},
+            410: {
+                "model": APIErrorResponse,
+                "description": "Generated file is missing from storage.",
+            },
         },
     )
     def download_certificate(certificate_id: UUID):
@@ -337,13 +413,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tags=["Certificates"],
         response_class=FileResponse,
         responses={
+            **auth_errors,
             200: {
                 "description": "Completed PDF with inline Content-Disposition.",
                 "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}},
             },
-            404: {"description": "Unknown certificate ID."},
-            409: {"description": "Certificate is not completed."},
-            410: {"description": "Generated file is missing from storage."},
+            404: {"model": APIErrorResponse, "description": "Unknown certificate ID."},
+            409: {"model": APIErrorResponse, "description": "Certificate is not completed."},
+            410: {
+                "model": APIErrorResponse,
+                "description": "Generated file is missing from storage.",
+            },
         },
     )
     @app.head(
@@ -364,14 +444,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tags=["Downloads"],
         response_class=FileResponse,
         responses={
+            **auth_errors,
             200: {
                 "description": "ZIP of successful certificate PDFs.",
                 "content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}},
             },
-            404: {"description": "Unknown job ID."},
-            409: {"description": "Batch is unfinished or has no successful certificates."},
-            410: {"description": "A stored PDF is missing."},
-            503: {"description": "Another archive builder holds the lock; retry shortly."},
+            **unknown_job,
+            409: {
+                "model": APIErrorResponse,
+                "description": "Batch is unfinished or has no successful certificates.",
+            },
+            410: {"model": APIErrorResponse, "description": "A stored PDF is missing."},
+            503: {"model": APIErrorResponse, "description": "Archive build lock timed out; retry."},
         },
     )
     def download_job(job_id: UUID):
