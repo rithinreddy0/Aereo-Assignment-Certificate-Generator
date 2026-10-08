@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#245f4b" />
+    <title>Folio — Certificate workspace</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/style.css?v=1" />
+    <script src="/static/app.js?v=1" defer></script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="Folio home"
+        ><span class="brand-mark">f<span>.</span></span
+        ><span
+          >folio<span class="brand-caption">CERTIFICATE WORKSPACE</span></span
+        ></a
+      >
+      <div class="sidebar-label">YOUR WORKSPACE</div>
+      <nav aria-label="Main navigation">
+        <button class="nav-item active" data-view="create">
+          <span data-icon="plus-square"></span>Create certificates
+        </button>
+        <button class="nav-item" data-view="library">
+          <span data-icon="award"></span>Generated certificates<span
+            class="nav-count"
+            id="nav-count"
+            >0</span
+          >
+        </button>
+        <button class="nav-item" data-view="history">
+          <span data-icon="clock"></span>Batch history
+        </button>
+      </nav>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-label">RECENT BATCHES</div>
+      <div id="sidebar-jobs" class="sidebar-jobs">
+        <p class="muted small">Your batches will appear here.</p>
+      </div>
+      <div class="sidebar-bottom">
+        <button class="nav-item" id="help-button">
+          <span data-icon="help"></span>How it works
+        </button>
+        <a class="nav-item" href="/docs" target="_blank" rel="noopener"
+          ><span data-icon="code"></span>API documentation<span
+            data-icon="external"
+            class="tiny-icon"
+          ></span
+        ></a>
+        <div class="workspace-card">
+          <span class="workspace-avatar">FL</span>
+          <div>
+            <strong>Local workspace</strong
+            ><span
+              ><i class="connection-dot"></i>
+              <span id="sidebar-connection">Connecting…</span></span
+            >
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="breadcrumb">
+          Workspace <span>/</span>
+          <strong id="breadcrumb-current">Create certificates</strong>
+        </div>
+        <div class="topbar-actions">
+          <span class="connection-pill" id="connection-pill"
+            ><i class="connection-dot"></i
+            ><span id="connection-label">Connecting</span></span
+          ><button
+            class="icon-button"
+            id="settings-button"
+            aria-label="Connection settings"
+            title="Connection settings"
+          >
+            <span data-icon="settings"></span></button
+          ><span class="user-avatar" aria-label="Workspace user">FL</span>
+        </div>
+      </header>
+      <main>
+        <section id="create-view" class="view">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">A LITTLE RECOGNITION GOES A LONG WAY</div>
+              <h1>
+                Make achievements official<span class="heading-dot">.</span>
+              </h1>
+              <p>Beautiful certificates. Every recipient. One simple batch.</p>
+            </div>
+            <button class="button secondary" id="example-button">
+              <span data-icon="sparkles"></span>Try an example
+            </button>
+          </div>
+          <div class="create-layout">
+            <form id="certificate-form" novalidate>
+              <section class="panel form-panel">
+                <div class="section-heading">
+                  <span class="step-number">01</span>
+                  <div>
+                    <h2>Certificate details</h2>
+                    <p>Tell us what you’re celebrating.</p>
+                  </div>
+                  <span class="required-note">* Required fields</span>
+                </div>
+                <div class="field-grid">
+                  <label class="field full"
+                    >Certificate design
+                    <select
+                      name="template"
+                      id="template"
+                      aria-describedby="template-description"
+                    >
+                      <option value="classic">
+                        Classic — ivory &amp; gold
+                      </option>
+                      <option value="modern">Modern — navy &amp; teal</option>
+                      <option value="minimal">
+                        Minimal — clean &amp; understated
+                      </option>
+                    </select>
+                    <small id="template-description"
+                      >One design applies to every recipient in the
+                      batch.</small
+                    >
+                  </label>
+                  <label class="field full"
+                    >Organization <span>*</span
+                    ><input
+                      name="organization"
+                      id="organization"
+                      required
+                      maxlength="120"
+                      placeholder="e.g. Aereo Learning Academy"
+                      autocomplete="organization"
+                  /></label>
+                  <label class="field full"
+                    >Course or event <span>*</span
+                    ><input
+                      name="course"
+                      id="course"
+                      required
+                      maxlength="120"
+                      placeholder="e.g. Python Backend Development"
+                  /></label>
+                  <label class="field"
+                    >Issue date <span>*</span
+                    ><input
+                      name="issued_on"
+                      id="issued_on"
+                      required
+                      type="date"
+                  /></label>
+                  <label class="field"
+                    >Certificate title <span>*</span
+                    ><input
+                      name="title"
+                      id="title"
+                      required
+                      maxlength="120"
+                      value="Certificate of Completion"
+                  /></label>
+                  <label class="field"
+                    >Signatory name <span>*</span
+                    ><input
+                      name="signatory"
+                      id="signatory"
+                      required
+                      maxlength="120"
+                      placeholder="e.g. Dr. Vidya Pawar"
+                  /></label>
+                  <label class="field"
+                    >Signatory role <span>*</span
+                    ><input
+                      name="signatory_role"
+                      id="signatory_role"
+                      required
+                      maxlength="120"
+                      value="Program Director"
+                  /></label>
+                </div>
+              </section>
+              <section class="panel form-panel recipient-panel">
+                <div class="section-heading">
+                  <span class="step-number">02</span>
+                  <div>
+                    <h2>
+                      Your recipients
+                      <span class="count-badge" id="recipient-count">0</span>
+                    </h2>
+                    <p>
+                      A name is all you need. Email and reference are optional.
+                    </p>
+                  </div>
+                </div>
+                <div class="recipient-toolbar">
+                  <div class="segmented" aria-label="Recipient entry method">
+                    <button type="button" class="selected" data-mode="manual">
+                      <span data-icon="users"></span>Add manually</button
+                    ><button type="button" data-mode="import">
+                      <span data-icon="upload"></span>Import a list
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    class="text-button"
+                    id="clear-recipients"
+                  >
+                    Clear list
+                  </button>
+                </div>
+                <div id="manual-entry">
+                  <div class="recipient-table-header">
+                    <span>RECIPIENT NAME *</span
+                    ><span>EMAIL <small>optional</small></span
+                    ><span>REFERENCE <small>optional</small></span
+                    ><span></span>
+                  </div>
+                  <div id="recipient-rows"></div>
+                  <button type="button" class="add-row" id="add-recipient">
+                    <span data-icon="plus"></span>Add another recipient
+                  </button>
+                </div>
+                <div id="import-entry" hidden>
+                  <label class="upload-zone" for="csv-file"
+                    ><span class="upload-icon" data-icon="upload"></span
+                    ><strong
+                      >Drop a CSV here, or <span>browse files</span></strong
+                    ><small
+                      >Name, email, reference ·
+                      <span id="import-limit"
+                        >up to 10,000 recipients</span
+                      ></small
+                    ><input
+                      id="csv-file"
+                      type="file"
+                      accept=".csv,.txt,text/csv,text/plain"
+                      class="visually-hidden"
+                  /></label>
+                  <div class="import-divider">
+                    <span>or paste your list</span>
+                  </div>
+                  <label class="field"
+                    ><span class="visually-hidden"
+                      >Recipients in CSV format</span
+                    ><textarea
+                      id="recipient-csv"
+                      rows="5"
+                      placeholder="name,email,reference&#10;Rithi Aluri,rithi@example.com,STUDENT-001&#10;Aarav Sharma,aarav@example.com,STUDENT-002"
+                      spellcheck="false"
+                    ></textarea>
+                  </label>
+                  <div class="import-bottom">
+                    <span id="import-status" class="muted small"
+                      >Use CSV columns: name, email, reference.</span
+                    ><button type="button" class="text-button" id="csv-example">
+                      Paste example
+                    </button>
+                  </div>
+                </div>
+                <div class="recipient-note">
+                  <span data-icon="info"></span
+                  ><span id="recipient-note-text"
+                    >Blank rows are skipped. Any invalid recipients will be
+                    clearly marked in your results.</span
+                  >
+                </div>
+              </section>
+              <div
+                id="form-error"
+                class="alert error"
+                role="alert"
+                hidden
+              ></div>
+              <div class="submit-area">
+                <div>
+                  <strong id="submit-summary">Ready when you are</strong
+                  ><span>Personalized PDFs, generated one at a time.</span>
+                </div>
+                <button
+                  class="button primary"
+                  id="generate-button"
+                  type="submit"
+                >
+                  <span data-icon="sparkles"></span
+                  ><span id="generate-label">Generate certificates</span
+                  ><span data-icon="arrow-right"></span>
+                </button>
+              </div>
+            </form>
+            <aside class="preview-column">
+              <section class="panel preview-panel">
+                <div class="preview-heading">
+                  <div>
+                    <span class="eyebrow">YOUR CERTIFICATE</span>
+                    <h2>Your design, made personal.</h2>
+                  </div>
+                  <span class="template-badge"
+                    ><i></i><span id="template-name">Classic</span></span
+                  >
+                </div>
+                <div class="certificate-stage">
+                  <div class="certificate-sheet" id="live-certificate">
+                    <div class="certificate-inner">
+                      <span class="certificate-org" id="preview-org"
+                        >YOUR ORGANIZATION</span
+                      ><span class="certificate-flourish"></span>
+                      <h3 id="preview-title">Certificate of Completion</h3>
+                      <span class="certificate-presented"
+                        >THIS CERTIFICATE IS PROUDLY PRESENTED TO</span
+                      ><strong class="certificate-name" id="preview-name"
+                        >Recipient Name</strong
+                      ><span class="certificate-for"
+                        >for successfully completing</span
+                      ><strong class="certificate-course" id="preview-course"
+                        >Your course or event</strong
+                      ><span class="certificate-date" id="preview-date"></span
+                      ><strong
+                        class="certificate-signatory"
+                        id="preview-signatory"
+                        >Signatory Name</strong
+                      ><span class="certificate-role" id="preview-role"
+                        >Program Director</span
+                      ><span class="certificate-footer"
+                        >A recognition worth keeping.</span
+                      >
+                    </div>
+                  </div>
+                </div>
+                <div class="preview-caption">
+                  <span class="pulse-dot"></span>Live layout preview<span
+                    >Landscape A4 · PDF</span
+                  >
+                </div>
+                <div class="template-details">
+                  <span
+                    ><span data-icon="check-circle"></span>Personalized for
+                    every recipient</span
+                  ><span
+                    ><span data-icon="check-circle"></span>Print-ready,
+                    high-quality PDF</span
+                  ><span
+                    ><span data-icon="check-circle"></span>Download individually
+                    or as a ZIP</span
+                  >
+                </div>
+              </section>
+              <section class="workflow-card">
+                <span class="workflow-icon" data-icon="layers"></span>
+                <div>
+                  <h3>A big batch, a small effort.</h3>
+                  <p>
+                    Add your recipients, hit generate, and we’ll take care of
+                    the rest. You can follow the progress as it happens.
+                  </p>
+                </div>
+              </section>
+              <section
+                id="latest-batch-card"
+                class="panel latest-batch"
+                hidden
+              ></section>
+            </aside>
+          </div>
+        </section>
+
+        <section id="library-view" class="view" hidden>
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">RECOGNITION, READY TO SHARE</div>
+              <h1>Your certificates<span class="heading-dot">.</span></h1>
+              <p>
+                Follow your batch, preview the results, and send them on their
+                way.
+              </p>
+            </div>
+            <button class="button primary" data-view="create">
+              <span data-icon="plus"></span>Create a new batch
+            </button>
+          </div>
+          <div class="library-toolbar">
+            <label class="field batch-picker"
+              >Select a batch<select
+                id="batch-select"
+                aria-label="Select a batch"
+              ></select></label
+            ><button class="button secondary" id="refresh-button">
+              <span data-icon="refresh"></span>Refresh
+            </button>
+          </div>
+          <div id="no-jobs" class="empty-state" hidden>
+            <span class="empty-icon" data-icon="award"></span>
+            <h2>Your first certificate starts here.</h2>
+            <p>
+              Create a batch and your generated certificates will appear in this
+              space.
+            </p>
+            <button class="button primary" data-view="create">
+              <span data-icon="plus"></span>Create certificates
+            </button>
+          </div>
+          <div id="job-results" hidden>
+            <section class="panel job-overview">
+              <div class="job-title-row">
+                <div>
+                  <div class="eyebrow" id="job-org"></div>
+                  <h2 id="job-course"></h2>
+                  <p id="job-meta" class="muted small"></p>
+                </div>
+                <span id="job-status" class="status-pill"></span>
+              </div>
+              <div class="job-stats">
+                <div>
+                  <span>Total recipients</span
+                  ><strong id="stat-total">0</strong>
+                </div>
+                <div>
+                  <span><i class="stat-dot green"></i>Ready to download</span
+                  ><strong id="stat-success">0</strong>
+                </div>
+                <div>
+                  <span><i class="stat-dot amber"></i>Need attention</span
+                  ><strong id="stat-failed">0</strong>
+                </div>
+                <div>
+                  <span><i class="stat-dot gray"></i>In progress</span
+                  ><strong id="stat-pending">0</strong>
+                </div>
+              </div>
+              <div class="progress-heading">
+                <span id="progress-label">Preparing your certificates</span
+                ><strong id="progress-percent">0%</strong>
+              </div>
+              <div
+                class="progress-track"
+                role="progressbar"
+                id="job-progress"
+                aria-label="Batch progress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              >
+                <div id="progress-fill"></div>
+              </div>
+              <div class="job-bottom">
+                <span id="job-hint" class="muted small"></span
+                ><button class="button primary" id="download-zip" disabled>
+                  <span data-icon="download"></span>Download batch ZIP
+                </button>
+              </div>
+            </section>
+            <div class="results-toolbar">
+              <div class="filter-tabs" aria-label="Filter recipient results">
+                <button class="active" data-filter="">All recipients</button
+                ><button data-filter="COMPLETED">Ready</button
+                ><button data-filter="attention">Need attention</button>
+              </div>
+              <div class="view-toggle" aria-label="Results layout">
+                <button
+                  class="active"
+                  id="grid-view-button"
+                  aria-label="Certificate grid"
+                  title="Certificate grid"
+                >
+                  <span data-icon="grid"></span></button
+                ><button
+                  id="list-view-button"
+                  aria-label="Recipient list"
+                  title="Recipient list"
+                >
+                  <span data-icon="list"></span>
+                </button>
+              </div>
+            </div>
+            <div id="results-loading" class="muted small" hidden>
+              Loading your certificates…
+            </div>
+            <div id="certificate-results" class="certificate-grid"></div>
+            <div class="pagination" id="result-pagination">
+              <span id="result-page-label"></span>
+              <div>
+                <button
+                  class="button secondary small-button"
+                  id="previous-results"
+                >
+                  Previous</button
+                ><button
+                  class="button secondary small-button"
+                  id="next-results"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="history-view" class="view" hidden>
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">EVERY BATCH, IN ONE PLACE</div>
+              <h1>Batch history<span class="heading-dot">.</span></h1>
+              <p>
+                Pick up where you left off. All your batches are saved in this
+                workspace.
+              </p>
+            </div>
+            <button class="button primary" data-view="create">
+              <span data-icon="plus"></span>Create a new batch
+            </button>
+          </div>
+          <div id="history-list" class="history-list"></div>
+          <div class="pagination">
+            <span id="history-page-label"></span>
+            <div>
+              <button class="button secondary small-button" id="previous-jobs">
+                Previous</button
+              ><button class="button secondary small-button" id="next-jobs">
+                Next
+              </button>
+            </div>
+          </div>
+        </section>
+        <footer class="app-footer">
+          <span>Made for moments that matter.</span
+          ><span>Folio · Bulk Certificate Generator</span>
+        </footer>
+      </main>
+    </div>
+
+    <dialog id="pdf-dialog" class="pdf-dialog">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">GENERATED CERTIFICATE</span>
+          <h2 id="pdf-name">Certificate preview</h2>
+        </div>
+        <button
+          class="icon-button"
+          data-close="pdf-dialog"
+          aria-label="Close preview"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <div class="pdf-content">
+        <div id="pdf-loading">Opening your certificate…</div>
+        <canvas
+          id="pdf-canvas"
+          aria-label="Actual generated certificate"
+          hidden
+        ></canvas>
+      </div>
+      <div class="dialog-footer">
+        <span class="muted small">This is your actual generated PDF.</span
+        ><button class="button primary" id="modal-download">
+          <span data-icon="download"></span>Download PDF
+        </button>
+      </div>
+    </dialog>
+    <dialog id="settings-dialog" class="settings-dialog">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">YOUR WORKSPACE</span>
+          <h2>Connection settings</h2>
+        </div>
+        <button
+          class="icon-button"
+          data-close="settings-dialog"
+          aria-label="Close settings"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <form id="settings-form">
+        <p class="muted">
+          If your server requires an API key, enter it here. It stays in this
+          browser tab’s session.
+        </p>
+        <label class="field"
+          >API key<input
+            id="api-key"
+            type="password"
+            autocomplete="off"
+            placeholder="Leave empty for the default local setup"
+        /></label>
+        <div class="dialog-footer">
+          <button class="button primary" type="submit">
+            Save connection<span data-icon="arrow-right"></span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="help-dialog" class="help-dialog">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">FROM LIST TO RECOGNITION</span>
+          <h2>Three steps. That’s it.</h2>
+        </div>
+        <button
+          class="icon-button"
+          data-close="help-dialog"
+          aria-label="Close help"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <div class="help-steps">
+        <div>
+          <span class="step-number">01</span>
+          <div>
+            <h3>Make it yours</h3>
+            <p>
+              Enter your organization, course or event, issue date, and the
+              person signing the certificate.
+            </p>
+          </div>
+        </div>
+        <div>
+          <span class="step-number">02</span>
+          <div>
+            <h3>Bring your recipient list</h3>
+            <p>
+              Add names manually or import a CSV. Email and reference are
+              optional. Invalid entries get their own error message.
+            </p>
+          </div>
+        </div>
+        <div>
+          <span class="step-number">03</span>
+          <div>
+            <h3>Generate, preview, share</h3>
+            <p>
+              Follow the progress in Generated certificates. Open any completed
+              PDF or download the whole successful batch as a ZIP.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="help-tip">
+        <span data-icon="info"></span>
+        <p>
+          If a batch stays queued, start the worker in a second terminal:
+          <code>python -m app.worker</code>
+        </p>
+      </div>
+      <div class="dialog-footer">
+        <button class="button primary" data-close="help-dialog">
+          Got it<span data-icon="check"></span>
+        </button>
+      </div>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

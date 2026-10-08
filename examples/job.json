@@ -1,0 +1,17 @@
+{
+  "certificate": {
+    "template": "classic",
+    "organization": "Aereo Learning Academy",
+    "course": "Python Backend Development",
+    "title": "Certificate of Completion",
+    "issued_on": "2026-10-08",
+    "signatory": "Dr. Vidya Pawar",
+    "signatory_role": "Program Director"
+  },
+  "recipients": [
+    {"name": "Rithi Aluri", "email": "rithi@example.com", "reference": "STUDENT-001"},
+    {"name": "Aarav Sharma", "email": "aarav@example.com", "reference": "STUDENT-002"},
+    {"name": "", "email": "invalid-email"}
+  ]
+}
+

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Folio · API documentation</title>
+    <link rel="stylesheet" href="/static/vendor/swagger-ui.css" />
+    <link rel="stylesheet" href="/static/docs.css" />
+  </head>
+  <body>
+    <header class="docs-header">
+      <a href="/" class="brand"
+        ><span>f.</span> folio <small>/ developer docs</small></a
+      >
+      <nav aria-label="Documentation navigation">
+        <a href="#quickstart">Quick start</a><a href="#contract">API rules</a
+        ><a href="#reference">API explorer</a><a href="/">Open app ↗</a>
+      </nav>
+    </header>
+    <main>
+      <section class="docs-hero">
+        <div>
+          <p class="eyebrow">FASTAPI · SQLITE · REPORTLAB</p>
+          <h1>One request.<br />A whole batch of certificates.</h1>
+          <p class="intro">
+            Choose a design, submit your recipients, and let the worker do the
+            heavy lifting. A small, predictable API with progress tracking and
+            per-recipient results.
+          </p>
+          <a class="primary" href="#reference">Try the API ↓</a
+          ><a class="secondary" href="/openapi.json">OpenAPI schema ↗</a>
+        </div>
+        <aside class="hero-note">
+          <span class="version">API v1.1</span>
+          <h2>Designed for bulk work.</h2>
+          <p>
+            Durable jobs. Isolated failures. PDFs generated one at a time. No
+            Redis or external service required.
+          </p>
+          <dl>
+            <div>
+              <dt>Designs</dt>
+              <dd>3 presets</dd>
+            </div>
+            <div>
+              <dt>Default batch limit</dt>
+              <dd>10,000 recipients</dd>
+            </div>
+            <div>
+              <dt>Default body limit</dt>
+              <dd>8 MiB</dd>
+            </div>
+            <div>
+              <dt>Output</dt>
+              <dd>A4 landscape PDF + ZIP</dd>
+            </div>
+          </dl>
+          <small
+            >Limits are configurable through environment variables. This is a
+            single-worker deployment, not a distributed queue.</small
+          >
+        </aside>
+      </section>
+      <section id="quickstart" class="guide-section">
+        <div class="section-title">
+          <span class="eyebrow">START HERE</span>
+          <h2>From a request to a ready-to-download PDF.</h2>
+        </div>
+        <div class="steps">
+          <article>
+            <span class="step">01</span>
+            <h3>Start both processes</h3>
+            <p>
+              Run these in separate terminals, with your virtual environment
+              active.
+            </p>
+            <pre>python -m uvicorn app.main:app --port 8000</pre>
+            <pre>python -m app.worker</pre>
+            <small
+              >The API can accept jobs without the worker, but they will stay
+              queued.</small
+            >
+          </article>
+          <article>
+            <span class="step">02</span>
+            <h3>Choose &amp; submit</h3>
+            <p>
+              Discover designs at <code>GET /api/templates</code>. Expand
+              <code>POST /api/jobs</code> below, click <b>Try it out</b>, edit
+              the example, then <b>Execute</b>.
+            </p>
+            <small
+              >Use <code>classic</code>, <code>modern</code>, or
+              <code>minimal</code>. Omitting the template selects
+              Classic.</small
+            >
+          </article>
+          <article>
+            <span class="step">03</span>
+            <h3>Track &amp; retrieve</h3>
+            <p>
+              Copy the returned <code>id</code>. Poll
+              <code>GET /api/jobs/{job_id}</code> until <code>pending</code> is
+              zero. List certificates for their IDs and individual errors.
+            </p>
+            <small
+              >Download an individual PDF or use the job download endpoint for
+              all successful PDFs in a ZIP.</small
+            >
+          </article>
+        </div>
+      </section>
+      <section id="contract" class="guide-section">
+        <div class="section-title">
+          <span class="eyebrow">THE CONTRACT</span>
+          <h2>Clear rules. No surprising failures.</h2>
+        </div>
+        <div class="rules">
+          <article>
+            <h3>Validation has two levels.</h3>
+            <p>
+              Bad shared fields, unknown templates, an empty list, or too many
+              recipients reject the request with <code>422</code>. A malformed
+              recipient only fails that row; valid recipients still generate.
+            </p>
+            <p>
+              Each recipient needs a <code>name</code> (1–120 characters).
+              <code>email</code> is optional but must be valid and unique within
+              the batch. <code>reference</code> is optional (up to 80
+              characters). Extra fields are rejected. Packaged fonts support
+              accented Latin text; unsupported glyphs fail clearly.
+            </p>
+          </article>
+          <article>
+            <h3>Progress includes failed rows.</h3>
+            <p>
+              <code>pending = total − succeeded − failed</code>.
+              <code>invalid</code> is a subset of <code>failed</code>; do not
+              add them together. A batch with all-invalid rows immediately
+              returns <code>FAILED</code> at 100%.
+            </p>
+            <div class="status-flow">
+              <span>QUEUED</span><b>→</b><span>RUNNING</span><b>→</b
+              ><span>COMPLETED<br />COMPLETED_WITH_ERRORS<br />FAILED</span>
+            </div>
+            <p>
+              COMPLETED means all successful. COMPLETED_WITH_ERRORS means mixed
+              outcomes. FAILED means none succeeded. A rendering error does not
+              stop the rest of the batch.
+            </p>
+          </article>
+          <article>
+            <h3>Safe retries &amp; optional auth.</h3>
+            <p>
+              Send <code>Idempotency-Key</code> with a job to retry safely. The
+              same key and payload return the same job; changed data or template
+              returns <code>409</code>. Use a fresh key for a new batch.
+            </p>
+            <p>
+              Local setup has no authentication. If <code>CERT_API_KEY</code> is
+              set, click <b>Authorize</b> in the explorer and enter its value.
+              Clients send it as <code>X-API-Key</code>. Use HTTPS for public
+              deployments; the docs are not a user-management system.
+            </p>
+          </article>
+          <article>
+            <h3>Errors you can act on.</h3>
+            <ul>
+              <li><code>401</code> Missing or incorrect configured key.</li>
+              <li><code>404</code> Unknown job or certificate ID.</li>
+              <li>
+                <code>409</code> Result not ready, no successes, or idempotency
+                conflict.
+              </li>
+              <li><code>410</code> A stored certificate file is missing.</li>
+              <li><code>413</code> Request body too large.</li>
+              <li><code>422</code> Invalid request or query parameters.</li>
+              <li><code>503</code> ZIP build is locked; retry shortly.</li>
+            </ul>
+            <p>
+              <code>/health</code> checks the API and database only. It does not
+              prove that a worker is running.
+            </p>
+          </article>
+        </div>
+      </section>
+      <section id="reference" class="guide-section">
+        <div class="section-title">
+          <span class="eyebrow">INTERACTIVE REFERENCE</span>
+          <h2>Your API, ready to explore.</h2>
+          <p>
+            Expand an endpoint to see its inputs, response schema, and behavior.
+            Requests here operate on your real local database.
+          </p>
+        </div>
+        <div id="swagger-ui"></div>
+      </section>
+    </main>
+    <footer>
+      Folio · Bulk Certificate Generator <a href="/">Back to the workspace ↗</a>
+    </footer>
+    <script src="/static/vendor/swagger-ui-bundle.js"></script>
+    <script src="/static/docs.js"></script>
+  </body>
+</html>
