@@ -5,6 +5,12 @@
 <h1 align="center">Folio · Bulk Certificate Generator</h1>
 
 <p align="center">
+  <a href="https://aereo-assignment-certificate-genera.vercel.app/"><strong>Live application</strong></a> ·
+  <a href="https://aereo-assignment-certificate-genera.vercel.app/docs">Live API documentation</a> ·
+  <a href="docs/SUBMISSION.md">Project submission</a>
+</p>
+
+<p align="center">
   A lightweight certificate workflow for training teams, event organizers, and learning platforms.<br />
   <strong>Submit a batch. Track every recipient. Deliver personalized PDF certificates.</strong>
 </p>
