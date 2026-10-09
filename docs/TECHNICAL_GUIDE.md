@@ -14,15 +14,21 @@ a persistent job, generates one PDF per valid recipient, tracks outcomes, and pr
 The browser is an optional client: another application can use the same API directly.
 
 A **job** is a batch. A **recipient** is one row in that batch. A **template** is a fixed visual
-design. A **worker** is a separately running Python process that performs generation.
+design. A **worker** performs generation from persisted jobs. Locally it can run as a separate
+Python process; on Render it runs as a thread managed by the FastAPI lifespan.
 
-There are two processes to start:
+The default local setup starts two processes:
 
 - `python -m uvicorn app.main:app --port 8000`: listens for HTTP requests.
 - `python -m app.worker`: polls SQLite and generates certificates.
 
 This is asynchronous **job processing**, even though the PDF worker processes recipients
 sequentially. It is not a distributed task queue and does not generate every PDF simultaneously.
+
+The deployed frontend is on [Vercel](https://aereo-assignment-certificate-genera.vercel.app/),
+the [backend](https://folio-aereo-api.onrender.com) is on Render, and the database is Neon
+PostgreSQL. `CERT_EMBEDDED_WORKER=true` starts the worker with the API; one Uvicorn process
+is used. [Deployment configuration](DEPLOYMENT.md) documents this mode.
 
 ## 2. Backend libraries: what each one does
 
@@ -41,9 +47,9 @@ For example, `@app.post("/api/jobs")` connects an HTTP POST to `submit_job`. The
 parameter describes the accepted request. A `response_model` describes the JSON response.
 `Depends(authenticate)` checks access before the endpoint runs.
 
-Our routes mostly use ordinary `def` functions because SQLite and filesystem work are blocking.
+Our routes mostly use ordinary `def` functions because database and filesystem work are blocking.
 Generation does not run inside an API request or through `BackgroundTasks`; it belongs to the
-separate durable worker. An API request returns 202 once the job is accepted.
+durable worker, either separate or embedded. An API request returns 202 once the job is accepted.
 
 Reference: [FastAPI tutorial](https://fastapi.tiangolo.com/tutorial/).
 
@@ -144,7 +150,7 @@ There are two tables:
   and error text. The recipient UUID is also the certificate ID.
 
 The relationship is one job to many recipient rows. Shared certificate details are stored once
-per job instead of repeated for every recipient. PDFs live on disk, not as database BLOBs.
+per job instead of repeated for every recipient. In SQLite mode, PDFs live on persistent local disk.
 
 **Database settings:** WAL supports reads during writes; foreign keys require a real owning job;
 full synchronous commits prioritize durability; a 30-second timeout waits for transient locks.
@@ -155,6 +161,31 @@ WAL does not make SQLite a distributed database or enable unlimited concurrent w
 Use local persistent storage; do not deploy the database/file locks on a network or cloud-synced drive.
 
 Reference: [Python sqlite3 documentation](https://docs.python.org/3/library/sqlite3.html).
+
+### Neon PostgreSQL through Psycopg · 3.3.6
+
+**Role:** persist the deployed application's jobs, recipients, and PDF bytes independently of
+Render's ephemeral disk. Setting `DATABASE_URL` selects this mode; leaving it empty uses SQLite.
+
+**Where:** [app/db.py](../app/db.py) and [app/postgres.py](../app/postgres.py).
+
+The adapter converts the existing `?` placeholders to Psycopg's `%s` placeholders and provides
+rows supporting both named and positional access. It maps constraint violations into the
+exception already handled by the idempotency logic. Parameter values remain bound by the driver.
+
+PostgreSQL adds **certificate_files**, with a recipient foreign key and a `BYTEA` PDF column.
+The worker stores the bytes and commits the successful recipient outcome/counter in the same
+transaction. `ensure_pdf` restores a missing local file from those bytes through an atomic
+temporary-file replacement. ZIP files are rebuilt from successful PDFs and cached locally.
+
+A PostgreSQL transaction advisory lock coordinates worker ownership across deployments, while
+file locks coordinate operations within a data directory. The worker holds the advisory-lock
+transaction while draining work; the recipient claim/outcome transactions remain separate and
+short. The locks serialize processing rather than distributing rows among parallel workers.
+
+Small PDFs in PostgreSQL keep this assignment's free deployment simple. Large-scale storage
+would need retention quotas, object storage, and schema migrations. The code uses a new cloud
+database; it does not migrate existing local SQLite jobs automatically.
 
 ### Other standard-library modules
 
@@ -210,7 +241,8 @@ contract; the guide and Swagger UI are ways to read/test it.
 ### Prettier
 
 **Role:** development-only formatting for HTML, CSS, JavaScript, and Markdown.
-Node/npm are needed only to update/vendor browser assets or run formatting, not to run Folio.
+Node/npm vendor browser assets, run formatting, and build the Vercel frontend output. They are
+not needed to run the local Python app or its backend worker.
 [package.json](../package.json) declares these tools and `package-lock.json` records exact resolutions.
 
 ## 5. Testing and deployment tools
@@ -222,10 +254,16 @@ Node/npm are needed only to update/vendor browser assets or run formatting, not 
 - **Ruff:** Python linting and formatting.
 - **setuptools/pip/venv:** package building, installation, and a project-specific Python environment.
 - **Docker/Compose:** optional containers for one API and one worker with a shared data volume.
-- **GitHub Actions:** the supplied workflow runs tests and quality checks on Python 3.11/3.12.
+- **GitHub Actions:** tests/quality checks on Python 3.11/3.12 plus a PostgreSQL 18 integration job.
+- **Vercel build:** `scripts/build-frontend.mjs` emits static assets and same-origin proxy routes
+  using the Build Output API. `BACKEND_URL` is build configuration, not a database credential.
+- **Render/Neon:** one free web service with an embedded worker and external PostgreSQL storage.
 
-The current expanded suite has 50 tests. A configured workflow is not proof of a passing hosted
-CI run; see your repository's Actions tab for that result.
+On October 9, 2026, local verification passed 51 tests and skipped the PostgreSQL-only case.
+Hosted CI passed the PostgreSQL test as well as Python quality checks. See
+[the Actions workflow](https://github.com/rithinreddy0/Aereo-Assignment-Certificate-Generator/actions/workflows/tests.yml)
+for the latest result. The PostgreSQL test removes a cached PDF, restarts the app, and verifies
+the restored PDF and ZIP. The live deployment was checked after a backend redeployment too.
 
 ## 6. Follow one request through the code
 
@@ -239,7 +277,8 @@ CI run; see your repository's Actions tab for that result.
 7. **Worker selection:** the lock-owning worker selects the oldest queued/running job and its next row.
 8. **Claim:** it commits PROCESSING, then closes the transaction before PDF work.
 9. **Render:** ReportLab writes a temporary PDF and atomically replaces the final UUID-named file.
-10. **Outcome:** success/failure and the counter update commit together. One rendering failure is caught
+10. **Outcome:** PDF bytes (cloud mode), success/failure, and the counter update commit together.
+    One rendering failure is caught
     independently; the worker moves on to the next row.
 11. **Completion:** the worker sets COMPLETED, COMPLETED_WITH_ERRORS, or FAILED from the final counters.
 12. **Retrieval:** clients poll, page through results, and retrieve ready PDFs/ZIPs.
@@ -254,7 +293,8 @@ Completed recipients are skipped. Accepted jobs are durable; process-local tasks
 
 **Stable paths:** a crash after writing a PDF but before committing success may cause that PDF to
 be generated again at the same UUID path. This is at-least-once processing, not an exactly-once
-transaction spanning SQLite and the filesystem.
+transaction spanning the filesystem and database. In PostgreSQL mode, stored PDF bytes and
+the successful database outcome commit together; the temporary filesystem remains a cache.
 
 **Failure boundaries:** validation rejects bad shared information before creating a job. Invalid
 recipient rows stay visible. Unsupported recipient glyphs and render errors produce individual FAILED
@@ -265,24 +305,29 @@ at a time; result pagination limits response size; archive creation iterates fil
 storage and queue size still grow with accepted work. Limits are per request, not global quotas.
 
 **Security boundaries:** the shared key is optional and provides no individual accounts or job ownership.
-Use HTTPS, admission/rate limits, persistent local storage, supervision, and backups before public exposure.
+Use HTTPS, admission/rate limits, durable storage, supervision, and backups for a production service.
 Docs/static pages are public even when API authentication is enabled.
 
 ## 8. How to explain it in an interview
 
-“I built a FastAPI API with a durable SQLite queue and a separate single worker. Shared certificate
-data is validated once; recipient data is validated individually so one bad row does not reject the
-batch. ReportLab creates vector PDFs using a selected preset. The API returns 202 with a job ID,
-and clients poll progress before retrieving PDFs or a ZIP. UUID paths and atomic writes support
-restart recovery; idempotency keys protect submission retries. The design is appropriate for one
-machine, with PostgreSQL/distributed workers a future architectural change—not a current feature.”
+Explain the implementation in your own words and demonstrate it in the code:
+
+“The API validates and persists a batch before returning 202. Recipient validation is separate
+so a bad row does not reject valid rows. A single worker uses ReportLab to generate vector PDFs;
+the browser polls progress and uses PDF.js to preview the finished files. SQLite supports local
+development. The deployed backend uses PostgreSQL for jobs and PDF bytes, so Render can lose its
+local cache without losing completed certificates. An advisory lock coordinates overlapping
+deployments. UUID paths and recovery support at-least-once processing; idempotency keys handle
+submission retries. Parallel workers would need a different claim strategy.”
 
 Useful questions to practice:
 
 - Why return 202 instead of waiting for every PDF?
 - Why is `invalid` included in `failed`?
 - Why validate `list[Any]` recipients separately?
-- What happens if the worker crashes between writing a PDF and updating SQLite?
+- What happens if the worker crashes between writing a PDF and committing its outcome?
+- Why does a completed PDF survive a Render restart, and how does `ensure_pdf` restore it?
+- Why do file locks and PostgreSQL advisory locks serve different scopes?
 - Why does adding more worker processes not increase capacity here?
 - Why does email validation not mean a certificate is emailed?
 - Why are PDF.js and ReportLab different responsibilities?

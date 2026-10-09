@@ -92,13 +92,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version="1.1.0",
         docs_url=None,
         lifespan=lifespan,
-        description="A durable, asynchronous batch API backed by SQLite "
-        "and a separate PDF worker.\n\n"
+        description="A durable, asynchronous batch API backed by SQLite locally or PostgreSQL "
+        "in the cloud, with a single PDF worker.\n\n"
         "1. Discover presets with **GET /api/templates**.\n"
         "2. Submit certificate details and recipients with **POST /api/jobs** (202 Accepted).\n"
         "3. Poll **GET /api/jobs/{job_id}** until pending is zero.\n"
         "4. List recipient results, preview individual PDFs, or download a batch ZIP.\n\n"
-        "Run `python -m app.worker` separately: starting the API alone does not generate PDFs. "
+        "Run `python -m app.worker` separately, or set CERT_EMBEDDED_WORKER=true "
+        "to start it with the API. "
         "No authentication is required locally unless CERT_API_KEY is configured. "
         "Then use **Authorize** to supply X-API-Key. "
         "See the guide above for validation and status semantics.",

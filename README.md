@@ -1,110 +1,259 @@
 <p align="center">
-  <img src="docs/assets/folio-banner.svg" alt="Folio — an API-first bulk certificate generator built with FastAPI, SQLite, and ReportLab" width="100%" />
+  <img src="docs/assets/folio-banner.svg" alt="Folio — bulk certificate generation with FastAPI, PostgreSQL, and ReportLab" width="100%" />
 </p>
 
 <h1 align="center">Folio · Bulk Certificate Generator</h1>
 
 <p align="center">
-  <a href="https://aereo-assignment-certificate-genera.vercel.app/"><strong>Live application</strong></a> ·
-  <a href="https://aereo-assignment-certificate-genera.vercel.app/docs">Live API documentation</a> ·
-  <a href="docs/SUBMISSION.md">Project submission</a>
+  Personalized certificates for courses, events, and training programs.<br />
+  <strong>One batch request. Progress for every recipient. PDFs ready to share.</strong>
 </p>
 
 <p align="center">
-  A lightweight certificate workflow for training teams, event organizers, and learning platforms.<br />
-  <strong>Submit a batch. Track every recipient. Deliver personalized PDF certificates.</strong>
+  <a href="https://aereo-assignment-certificate-genera.vercel.app/"><strong>Open live application ↗</strong></a> ·
+  <a href="https://folio-aereo-api.onrender.com">Backend ↗</a> ·
+  <a href="https://aereo-assignment-certificate-genera.vercel.app/docs">Interactive API docs ↗</a> ·
+  <a href="https://github.com/rithinreddy0/Aereo-Assignment-Certificate-Generator/actions/workflows/tests.yml">CI results ↗</a>
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#product-preview">Product preview</a> ·
-  <a href="#submit-a-generation-request">API guide</a> ·
-  <a href="#learn-the-backend">Learn the backend</a> ·
-  <a href="#architecture-and-processing-flow">Architecture</a> ·
-  <a href="#testing-and-quality-checks">Testing</a> ·
-  <a href="#learning-and-future-scope">Roadmap</a>
+  <a href="https://github.com/rithinreddy0/Aereo-Assignment-Certificate-Generator/actions/workflows/tests.yml"><img src="https://github.com/rithinreddy0/Aereo-Assignment-Certificate-Generator/actions/workflows/tests.yml/badge.svg" alt="Tests workflow status" /></a>
 </p>
-
----
-
-## Overview
-
-### Deploy the complete application for free
-
-Use **Vercel** for the frontend, **Render Free** for FastAPI and the embedded
-worker, and **Neon Free PostgreSQL** for persistent jobs and PDFs. See the
-[deployment guide](docs/DEPLOYMENT.md) for configuration and submission checks.
-Local SQLite and the separate worker still work as before.
-
-Generating certificates should not require a request per participant or hide individual failures
-inside an opaque batch. Folio provides a **backend-first, asynchronous workflow**: the API accepts
-shared certificate information and recipients, persists a durable job, and returns an ID immediately.
-A separate worker generates PDFs one recipient at a time while clients track progress and results.
-
-The browser workspace is a convenient client for the same API—not a separate generation system.
-Python and SQLite are sufficient to run locally, without a paid database, Redis, or a browser-based
-PDF generation service.
-
-### What the application delivers
-
-- **Bulk generation:** one JSON request for many recipients; configurable defaults of 10,000
-  recipients and 8 MiB per request.
-- **Three designs:** Classic, Modern, and Minimal, with personalized fields in landscape A4 vector PDFs.
-- **Visible outcomes:** batch progress, paginated results, and an error for each unsuccessful row.
-- **Failure isolation:** an invalid recipient or individual rendering error does not stop valid rows.
-- **Durable processing:** SQLite-backed jobs, restart recovery, atomic output, and idempotent retries.
-- **Practical delivery:** actual PDF previews, individual downloads, and a ZIP of successful PDFs.
-- **Clear integration:** typed endpoints, OpenAPI, and an interactive guide with ready-to-edit examples.
-
-> **Deployment scope:** designed for one machine and one PDF worker. This is not a distributed
-> queue, a multi-tenant SaaS platform, or a claim of unlimited certificate capacity.
-
-## Learn the backend
-
-Choose the documentation that fits your goal:
-
-- [Technical guide](docs/TECHNICAL_GUIDE.md): every direct library, standard-library tools,
-  browser/development dependencies, database structure, request-to-PDF flow, and interview explanations.
-- [Detailed API reference](docs/API_REFERENCE.md): every public endpoint, headers, all input/output
-  fields, pagination, status meanings, complete request/response examples, error bodies, and a
-  copy-ready PowerShell workflow that polls before downloading.
-- [Interactive documentation](http://127.0.0.1:8000/docs): run actual requests after starting locally.
-
-The main responsibilities are deliberately separated: **FastAPI/Uvicorn** handle HTTP,
-**Pydantic/email-validator** validate inputs, **SQLite** persists jobs, **filelock** coordinates
-the worker/archive builder, and **ReportLab** creates PDFs. **PDF.js** only previews finished PDFs;
-**Swagger UI** provides API exploration. **pytest, HTTPX, pypdf, Ruff, and Prettier** support
-verification and development. No React build, Celery, Redis, or paid PDF service is required.
-
-## Product preview
-
-### Three designs, one consistent API
 
 <p align="center">
-  <img src="docs/assets/template-classic.png" alt="Classic certificate: ivory paper with a double gold border" width="280" />
-  <img src="docs/assets/template-modern.png" alt="Modern certificate: navy masthead with teal accents" width="280" />
-  <img src="docs/assets/template-minimal.png" alt="Minimal certificate: white paper with fine charcoal lines" width="280" />
+  <a href="#try-it-in-two-minutes">Try it</a> ·
+  <a href="#product-tour">Product tour</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#how-a-batch-is-processed">Workflow</a> ·
+  <a href="#technology-and-library-choices">Libraries</a> ·
+  <a href="#run-locally">Run locally</a> ·
+  <a href="#understand-and-extend-the-code">Extend the code</a>
 </p>
 
-<p align="center"><strong>Classic</strong> · Formal &amp; timeless &nbsp; | &nbsp; <strong>Modern</strong> · Bold &amp; contemporary &nbsp; | &nbsp; <strong>Minimal</strong> · Clean &amp; understated</p>
+## The problem and the solution
 
-These images preview actual PDFs generated by the backend. Each batch selects one design; the
-organization, title, recipient, course, date, signatory, role, and reference remain dynamic.
-All presets share the same validation, text-fitting logic, and processing pipeline.
+Creating certificates one at a time makes a simple task repetitive. A bulk workflow also needs
+to show which recipients succeeded, what failed, and whether a retry will duplicate the batch.
 
-**Classic remains the default**, preserving the original assignment's single-template behavior
-and older jobs. Modern and Minimal are optional presets. There is no template editor or arbitrary
-uploaded code: layouts live in `app/renderer.py`, with the public catalogue in `app/templates.py`.
+Folio accepts shared certificate details and a recipient list, saves a durable job, and returns
+`202 Accepted` with a job ID. A worker generates personalized PDFs while the browser tracks
+progress. Invalid rows stay visible without preventing valid recipients from completing.
 
-## Quick start
+The frontend, public API, and PDF worker use the same stored job state. The deployed application
+uses **Vercel + Render + Neon PostgreSQL**; local development uses **SQLite** by default.
 
-Python 3.11 or newer. SQLite is a relational database included with Python: no database account,
-paid service, Docker, Redis, or additional server is required. Use a local disk for `data/`.
+## Try it in two minutes
+
+1. Open the [live application](https://aereo-assignment-certificate-genera.vercel.app/).
+2. Click **Try an example**, select Classic, Modern, or Minimal, and click **Generate certificates**.
+3. Watch the batch reach completion and inspect the individual recipient results.
+4. Open **Preview** to see the actual generated PDF. Download one PDF or the complete batch ZIP.
+5. Open **Batch history** to revisit the job, or use the [API explorer](https://aereo-assignment-certificate-genera.vercel.app/docs) to submit a request directly.
+
+The public demo needs no API key. Its batch limit is **500 recipients**; the local default is
+10,000. Render's free backend sleeps when idle, so the first connection may take about a minute.
+Use synthetic recipient data: visitors share the demo's history.
+
+## Product tour
+
+### Create a batch
+
+Enter organization, course/event, date, title, and signatory details. Add recipients manually
+or import CSV. The live layout preview updates as the fields change.
+
+![Deployed certificate workspace with shared details and recipient entry](docs/assets/workspace-create.jpg)
+
+### Follow every outcome
+
+The results screen shows completed, failed, and pending counts, progress, individual errors,
+recipient filters, pagination, and grid/list views. Successful PDFs remain downloadable after
+the backend restarts because the cloud database stores their contents.
+
+![Completed three-recipient batch on the deployed application](docs/assets/workspace-results.jpg)
+
+### Preview the actual PDF
+
+ReportLab produces the file; PDF.js displays it in the browser. The viewer shows the same PDF
+that the download endpoint returns.
+
+![Actual generated certificate displayed in the PDF viewer](docs/assets/workspace-pdf.jpg)
+
+<p align="center">
+  <img src="docs/assets/template-classic.png" alt="Classic: ivory paper and double gold border" width="280" />
+  <img src="docs/assets/template-modern.png" alt="Modern: navy masthead and teal accents" width="280" />
+  <img src="docs/assets/template-minimal.png" alt="Minimal: white paper and charcoal lines" width="280" />
+</p>
+
+<p align="center"><strong>Classic</strong> · Formal &amp; timeless &nbsp; | &nbsp; <strong>Modern</strong> · Navy &amp; teal &nbsp; | &nbsp; <strong>Minimal</strong> · Clean &amp; understated</p>
+
+All three designs use landscape A4, embedded fonts, text wrapping, and a shared fitting pipeline.
+These previews come from generated certificates. The workspace screenshots show the live deployment.
+
+## Features
+
+- **Bulk input:** shared fields plus multiple recipients in one JSON request; manual entry and CSV import.
+- **Three certificate designs:** a selected preset applies to the entire batch; Classic is the default.
+- **Two validation boundaries:** shared-field errors reject the request; individual errors affect only their row.
+- **Clear progress:** job and recipient states, per-row errors, paginated history, and attention filters.
+- **Durable generation:** persisted queue, restart recovery, stable UUID filenames, and atomic PDF writes.
+- **Safe submission retries:** optional idempotency keys return the existing job for an identical request.
+- **PDF delivery:** genuine browser previews, individual downloads, and a ZIP of successful certificates.
+- **Cloud persistence:** PostgreSQL stores jobs, recipients, and PDF bytes; lost local caches restore on demand.
+- **Optional access control:** `X-API-Key` for API clients and an HttpOnly browser-session cookie for downloads.
+- **Developer tooling:** typed OpenAPI, interactive Swagger UI, automated API/PDF tests, linting, and CI.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    User[Browser / API client] --> Frontend[Vercel: HTML, CSS, JavaScript]
+    Frontend -->|API requests through same-origin proxy| API[Render: FastAPI + Uvicorn]
+    API -->|Validate and persist| DB[(Neon PostgreSQL)]
+    Worker[Embedded single PDF worker] -->|Read durable queue| DB
+    Worker --> Renderer[ReportLab renderer]
+    Renderer --> Cache[Temporary PDF files]
+    Worker -->|PDF bytes + outcome| DB
+    API -->|Restore PDF cache when needed| DB
+    API -->|Serve PDF or cached ZIP| Frontend
+    Frontend -->|Preview finished PDF| Viewer[PDF.js]
+```
+
+**Frontend:** Vercel serves static assets. The build script generates proxy routes for `/api/*`,
+`/health`, `/ui-config`, `/ui-session`, and `/openapi.json`. Browser requests and download cookies
+stay on the Vercel origin.
+
+**Backend:** Render runs one Uvicorn process. With `CERT_EMBEDDED_WORKER=true`, the FastAPI lifespan
+starts a worker thread and requests its shutdown when the service stops. The queue itself is in
+the database, so accepted work survives the process.
+
+**Database and files:** `jobs` owns many `recipients`; the cloud-only `certificate_files` table
+stores one PDF per successful recipient as `BYTEA`. Local PDF/ZIP files are caches in cloud mode.
+Without `DATABASE_URL`, the same code uses SQLite and persistent local files.
+
+**Coordination:** file locks coordinate workers and archive builders on one machine. A PostgreSQL
+transaction advisory lock additionally serializes generation across overlapping cloud deployments.
+This remains a single-worker design; adding replicas does not make generation parallel.
+
+## How a batch is processed
+
+1. **Receive:** the body-limit middleware enforces the configured byte limit; optional authentication runs before the endpoint.
+2. **Validate the shared request:** Pydantic checks certificate fields, date, template, and the batch envelope. Invalid shared information returns `422`.
+3. **Validate recipients individually:** the service normalizes each row, validates optional email, and rejects duplicate emails within that batch. Bad rows become `INVALID`.
+4. **Save atomically:** one transaction inserts the job and recipient rows. A unique idempotency key plus a canonical request hash prevents duplicate retry submissions.
+5. **Accept:** the API returns `202` immediately with the saved job ID. Accepted does not mean generation is finished.
+6. **Claim and render:** the lock-owning worker marks one recipient `PROCESSING`, commits, and renders outside the row-update transaction.
+7. **Record the result:** it stores PDF bytes in cloud mode and commits the outcome and counters together. A rendering failure becomes `FAILED` and does not stop the remaining rows.
+8. **Finish:** when every row is resolved, the job becomes `COMPLETED`, `COMPLETED_WITH_ERRORS`, or `FAILED`.
+9. **Retrieve:** clients poll status, page through outcomes, preview/download a PDF, or request the completed batch ZIP.
+
+```mermaid
+stateDiagram-v2
+    [*] --> QUEUED: Batch accepted
+    QUEUED --> RUNNING: Worker selects job
+    RUNNING --> COMPLETED: All recipients succeed
+    RUNNING --> COMPLETED_WITH_ERRORS: Some succeed, some fail
+    RUNNING --> FAILED: No recipients succeed
+    [*] --> FAILED: Every submitted row is invalid
+```
+
+`pending = total - succeeded - failed`. `invalid` is a subset of `failed`, so it must not be
+added again. Progress counts resolved outcomes: 100% can include failures.
+
+On restart, interrupted `PROCESSING` rows return to `QUEUED`. A crash between rendering and
+committing the outcome can regenerate the same UUID-named PDF. This is **at-least-once processing**;
+submission idempotency and worker recovery solve different problems.
+
+## Technology and library choices
+
+The combination follows a straightforward pipeline:
+**Uvicorn → FastAPI/Starlette → Pydantic → persistence → worker → ReportLab → PDF.js**.
+
+### HTTP and validation
+
+- **FastAPI:** routes, dependencies, response models, and OpenAPI generation — [main.py](app/main.py).
+- **Uvicorn:** runs the ASGI application and accepts network requests.
+- **Starlette:** HTTP responses, static assets, and file delivery underneath FastAPI.
+- **Pydantic:** strict request/response models, string constraints, valid dates, and template IDs — [schemas.py](app/schemas.py).
+- **email-validator:** validates/normalizes optional email addresses through `EmailStr`; it does not deliver email or verify mailbox ownership.
+
+### Persistence and generation
+
+- **Psycopg:** parameterized PostgreSQL access for Neon. The small adapter preserves the existing query interface — [postgres.py](app/postgres.py).
+- **SQLite / `sqlite3`:** local relational storage included with Python; WAL, foreign keys, and short transactions support local polling — [db.py](app/db.py).
+- **filelock:** coordinates a worker per data directory and prevents competing ZIP/cache writes. Cloud worker coordination also uses PostgreSQL advisory locks.
+- **ReportLab:** draws vector PDFs, embeds packaged fonts, checks supported glyphs, wraps text, and writes files atomically — [renderer.py](app/renderer.py).
+- **Python standard library:** `uuid` for identifiers, `json` for shared data, `hashlib` for retry hashes, `hmac` for browser credentials, `zipfile` for archives, and threading/context managers for worker lifecycle and transactions.
+
+### Browser, tests, and builds
+
+- **HTML, CSS, JavaScript:** responsive interface, CSV parsing, fetch requests, progress polling, and paginated results.
+- **PDF.js:** renders completed PDF files in a browser canvas; it is not the PDF generation engine.
+- **Swagger UI:** interactive documentation generated from the backend's OpenAPI schema.
+- **pytest + HTTPX:** API, validation, queue, authentication, and integration checks.
+- **pypdf:** verifies the contents and page count of actual generated PDFs.
+- **Ruff / Prettier:** Python and frontend formatting/linting tools.
+- **setuptools / pip / venv:** Python packaging, installation, and isolated environments.
+- **Node.js / npm:** vendors browser assets and builds the static Vercel deployment. It is not needed to run the local Python app.
+- **GitHub Actions:** Python 3.11/3.12 checks and a separate PostgreSQL 18 integration job.
+- **Docker / Compose:** optional local deployment of the API and worker with a shared volume.
+
+Direct dependencies are in [pyproject.toml](pyproject.toml) and [package.json](package.json).
+[requirements.lock](requirements.lock) and [package-lock.json](package-lock.json) record the tested
+dependency versions, including transitive packages. The [technical guide](docs/TECHNICAL_GUIDE.md)
+explains each component in more depth.
+
+## API quick start
+
+- **Frontend:** [Vercel workspace](https://aereo-assignment-certificate-genera.vercel.app/).
+- **Backend base URL:** `https://folio-aereo-api.onrender.com`.
+- **Interactive documentation:** [Swagger UI](https://aereo-assignment-certificate-genera.vercel.app/docs).
+- **Machine-readable contract:** [OpenAPI JSON](https://aereo-assignment-certificate-genera.vercel.app/openapi.json).
+
+From the repository root, submit the included sample (use `curl.exe` on Windows):
+
+```bash
+curl -X POST https://folio-aereo-api.onrender.com/api/jobs \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: reviewer-demo-001' \
+  --data-binary @examples/job.json
+```
+
+Use a fresh key for a new batch. Copy the returned `id`, then:
+
+```bash
+curl https://folio-aereo-api.onrender.com/api/jobs/JOB_ID
+curl 'https://folio-aereo-api.onrender.com/api/jobs/JOB_ID/certificates?limit=100&offset=0'
+# Download after pending is zero and succeeded is greater than zero:
+curl -L https://folio-aereo-api.onrender.com/api/jobs/JOB_ID/download -o certificates.zip
+```
+
+Public endpoints:
+
+- `GET /api/templates` — discover designs.
+- `POST /api/jobs` — validate/save a batch and return `202`.
+- `GET /api/jobs` — paginated batch history.
+- `GET /api/jobs/{job_id}` — job counts, status, and progress.
+- `GET /api/jobs/{job_id}/certificates` — paginated outcomes; filter by `status` or `attention=true`.
+- `GET /api/certificates/{certificate_id}/preview` — display a completed PDF inline.
+- `GET /api/certificates/{certificate_id}/download` — download that PDF.
+- `GET /api/jobs/{job_id}/download` — ZIP of successful PDFs after the job finishes.
+- `GET /health` — API/database connectivity probe; not a worker heartbeat.
+
+Errors have a `detail` field: `401` invalid configured key, `404` unknown ID, `409` unavailable
+download/idempotency conflict, `410` missing PDF, `413` oversized body, `422` invalid input,
+and `503` ZIP-lock timeout. UUID syntax errors also return `422`.
+
+![Live API documentation with the request-to-download workflow](docs/assets/api-docs-live.jpg)
+
+See the [complete API reference](docs/API_REFERENCE.md) for every field, response, error,
+authentication rule, and a PowerShell walkthrough that polls before downloading.
+
+## Run locally
+
+Requires Python 3.11+. SQLite is the default, so no cloud credentials are necessary.
 
 <details open>
 <summary><strong>Windows · PowerShell</strong></summary>
-
-From the project directory:
 
 ```powershell
 python -m venv .venv
@@ -112,7 +261,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open a **second terminal in the same directory** and start the worker:
+In a second terminal in the same directory:
 
 ```powershell
 .\.venv\Scripts\python.exe -m app.worker
@@ -128,405 +277,36 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]' -c requirements.lock
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-# In a second terminal, activate the same virtual environment:
+# In a second terminal, activate the virtual environment:
 python -m app.worker
 ```
 
 </details>
 
-Open [the Folio workspace](http://127.0.0.1:8000/) to create and view certificates.
-[API guide and interactive explorer](http://127.0.0.1:8000/docs), [ReDoc](http://127.0.0.1:8000/redoc), and
-`/openapi.json` are also available for API testing.
+Open `http://127.0.0.1:8000/` and `/docs`. API and worker must share the same data directory
+and environment settings. The app does not automatically load `.env` files; set environment
+variables in your shell, host dashboard, or Compose configuration.
 
-> **Start both processes.** The API accepts jobs without the worker, but valid recipients remain
-> queued until it starts. Both processes must use the same data directory and environment settings.
+For a single-process local demo, set `CERT_EMBEDDED_WORKER=true` before starting Uvicorn and
+use one Uvicorn worker. For one-time queue processing, run `python -m app.worker --once`.
+Docker is optional: `docker compose up --build -d` starts both services with a shared volume.
 
-If port 8000 is occupied, check whether Folio is already running before starting another server.
+### Cloud configuration
 
-For development, add `--reload` to Uvicorn. For a one-time drain of queued jobs:
+- **Vercel:** repository root, framework Other, checked-in `vercel.json`; `BACKEND_URL` is the HTTPS Render origin.
+- **Render:** Free Python web service, one Uvicorn worker, `/health` probe, and `CERT_EMBEDDED_WORKER=true`.
+- **Neon:** secret `DATABASE_URL` on Render with TLS enabled. Jobs and PDFs persist in PostgreSQL.
+- **Limits:** `CERT_MAX_RECIPIENTS`, `CERT_MAX_BODY_BYTES`, and `CERT_POLL_SECONDS`; optional `CERT_API_KEY` enables restricted access.
 
-```powershell
-.\.venv\Scripts\python.exe -m app.worker --once
-```
+The [deployment guide](docs/DEPLOYMENT.md) gives the exact build/start commands and environment
+variables. [render.yaml](render.yaml) provides the backend blueprint; [build-frontend.mjs](scripts/build-frontend.mjs)
+produces Vercel's static output and proxy routes. Database credentials are never frontend variables.
 
-## Submit a generation request
+## Verification
 
-### Using the frontend
-
-1. Open `http://127.0.0.1:8000/`, choose a **Certificate design**, and enter the shared details.
-2. Add recipients manually or choose **Import a list** to paste or upload CSV.
-3. Click **Generate certificates**. The results screen tracks progress automatically.
-4. Click **Preview** to view an actual generated PDF, **PDF** to download one, or
-   **Download batch ZIP** to download all successful certificates after processing finishes.
-5. Open **Batch history** to revisit earlier jobs. Use **Need attention** to see validation and
-   generation errors, or switch between grid and list layouts.
-
-**Try an example** fills a valid three-person batch. The date defaults to the browser's local
-calendar date. The live HTML preview shows the layout; the generated PDF viewer shows the actual
-file with embedded fonts, rendered on demand using [Mozilla PDF.js](https://mozilla.github.io/pdf.js/).
-No external CDN, browser PDF plugin, or frontend development server is required.
-
-CSV accepts a `name` column and optional `email` and `reference` columns, in any order:
-
-```csv
-name,email,reference
-Rithi Aluri,rithi@example.com,STUDENT-001
-"Sharma, Aarav",aarav@example.com,STUDENT-002
-Meera Rao,,STUDENT-003
-```
-
-An example file is included at `examples/recipients.csv`.
-
-Headerless CSV uses that same column order. Quoted commas, escaped quotes, Windows line endings,
-and UTF-8 BOMs are supported. Blank rows are skipped; partial rows are submitted for individual
-validation. Import is converted to the existing bounded JSON API; it does not bypass batch/body
-limits or stream unlimited CSV on the server. Manual entry supports up to 100 visible rows;
-CSV import supports the configured batch limit. Recipient results load 12 at a time.
-
-If authentication is enabled, enter the key in **Connection settings**. The key is kept in tab
-session storage, and the server issues a separate HttpOnly, SameSite=Strict browser-session cookie
-for native file downloads. The cookie contains an HMAC credential, not the API key, and becomes
-invalid when the server key changes. This allows ZIPs to stream through browser downloads instead
-of buffering a whole archive in JavaScript. API clients can still use `X-API-Key` as before.
-
-### Using the API
-
-PowerShell:
-
-```powershell
-$job = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/jobs `
-  -ContentType 'application/json' -Body (Get-Content examples/job.json -Raw) `
-  -Headers @{ 'Idempotency-Key' = 'aereo-demo-001' }
-$job
-```
-
-curl (on Windows use `curl.exe`):
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/jobs \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: aereo-demo-001' \
-  --data-binary @examples/job.json
-```
-
-Request:
-
-```json
-{
-  "certificate": {
-    "template": "modern",
-    "organization": "Aereo Learning Academy",
-    "course": "Python Backend Development",
-    "issued_on": "2026-10-08",
-    "signatory": "Dr. Vidya Pawar",
-    "signatory_role": "Program Director"
-  },
-  "recipients": [
-    {
-      "name": "Rithi Aluri",
-      "email": "rithi@example.com",
-      "reference": "STUDENT-001"
-    },
-    { "name": "Aarav Sharma", "email": "aarav@example.com" },
-    { "name": "", "email": "invalid-email" }
-  ]
-}
-```
-
-`title` defaults to `Certificate of Completion`; `signatory_role` defaults to `Program Director`.
-`template` defaults to `classic`; use `modern` or `minimal` for another preset. The same design
-applies to every recipient in the job and is returned in job information/history. Existing jobs
-without a template still generate as Classic; no database migration is needed.
-Email and reference are optional. Email is metadata, not an email delivery feature.
-`issued_on` must be an actual calendar date in `YYYY-MM-DD` format.
-
-The bundled JSON example uses Classic; the request above illustrates selecting Modern.
-
-HTTP `202 Accepted` response (ID and times vary):
-
-```json
-{
-  "id": "7401d4c6-9929-45cf-9e42-7cadb4888239",
-  "status": "QUEUED",
-  "total": 3,
-  "succeeded": 0,
-  "failed": 1,
-  "invalid": 1,
-  "pending": 2,
-  "progress_percent": 33.33,
-  "created_at": "2026-10-08T09:00:00+00:00",
-  "finished_at": null,
-  "certificate": {
-    "template": "modern",
-    "organization": "Aereo Learning Academy",
-    "course": "Python Backend Development",
-    "title": "Certificate of Completion",
-    "issued_on": "2026-10-08",
-    "signatory": "Dr. Vidya Pawar",
-    "signatory_role": "Program Director"
-  }
-}
-```
-
-`failed` includes invalid recipients. `invalid` is the subset that failed input validation.
-`pending = total - succeeded - failed`. Progress measures processed outcomes, including failures;
-100% does not mean every certificate succeeded. All stored timestamps use UTC.
-
-## Endpoints
-
-- `GET /api/templates`: return the default template and available designs (ID, name, description,
-  accent color, and page format). Use the ID in `certificate.template`.
-- `POST /api/jobs`: validate and persist a batch; return `202` with its job ID.
-- `GET /api/jobs`: paginated job history, newest first (`limit` 1–100, default 25; `offset`).
-- `GET /api/jobs/{job_id}`: return job information and progress.
-- `GET /api/jobs/{job_id}/certificates`: paginated recipient outcomes, including errors.
-  Use `limit` (1–500, default 100), `offset` (default 0), and optional `status`.
-  Alternatively use `attention=true` to include both `INVALID` and `FAILED` outcomes.
-- `GET /api/certificates/{certificate_id}/download`: download one completed PDF.
-- `GET /api/certificates/{certificate_id}/preview`: inline PDF for a completed certificate.
-- `GET /api/jobs/{job_id}/download`: download successful PDFs as a ZIP after the job finishes.
-- `GET /health`: verify the API can access the database. This is not a worker heartbeat.
-
-Example progress/result commands:
-
-Wait until `pending` is zero, then fetch recipient results again before downloading. These
-commands show each step; they are not an automatic polling loop. A completed ZIP requires
-at least one successful certificate.
-
-```powershell
-$id = $job.id
-Invoke-RestMethod "http://127.0.0.1:8000/api/jobs/$id"
-$results = Invoke-RestMethod "http://127.0.0.1:8000/api/jobs/$id/certificates?limit=100&offset=0"
-$results.items
-Invoke-RestMethod "http://127.0.0.1:8000/api/jobs/$id/certificates?status=FAILED"
-Invoke-RestMethod "http://127.0.0.1:8000/api/jobs/$id/certificates?status=INVALID"
-Invoke-WebRequest "http://127.0.0.1:8000/api/jobs/$id/download" -OutFile certificates.zip
-$pdf = ($results.items | Where-Object status -eq 'COMPLETED' | Select-Object -First 1)
-Invoke-WebRequest ("http://127.0.0.1:8000" + $pdf.download_url) -OutFile certificate.pdf
-```
-
-Each recipient result contains `id`, its zero-based input `index`, `name`, `email`, `reference`,
-`status`, `error`, and `download_url`. Invalid rows may have null metadata; the input index and
-validation message identify the row to correct. No arbitrary input object is stored.
-
-Example unsuccessful recipient:
-
-```json
-{
-  "id": "c2f3663d-ce90-42e8-9913-460a78ba4380",
-  "index": 2,
-  "name": null,
-  "email": null,
-  "reference": null,
-  "status": "INVALID",
-  "error": "name: String should have at least 1 character; email: value is not a valid email address",
-  "download_url": null
-}
-```
-
-Job states: `QUEUED`, `RUNNING`, `COMPLETED`, `COMPLETED_WITH_ERRORS`, `FAILED`.
-Recipient states: `QUEUED`, `PROCESSING`, `COMPLETED`, `INVALID`, `FAILED`.
-If every row is invalid, the job immediately becomes `FAILED` without needing the worker.
-If some certificates succeed and others fail, it finishes as `COMPLETED_WITH_ERRORS`.
-
-### Errors and retries
-
-- `401`: missing/wrong API key when authentication is enabled.
-- `404`: unknown job/certificate.
-- `409`: unfinished/unavailable download, no successful PDFs, or conflicting idempotency key.
-- `410`: a generated PDF is missing from storage.
-- `413`: request exceeds the body size limit, including streamed/chunked bodies.
-- `422`: malformed envelope, invalid shared certificate information, invalid URL/query input,
-  or a batch over the configured limit.
-- `503`: another request is still building the ZIP after the lock wait times out.
-
-Use an `Idempotency-Key` header to retry a submission without creating duplicate jobs.
-The same key and semantically identical parsed request return the original job, even after it
-finishes. Reusing a key with different data returns `409`. Without a key, every submission
-creates a new job. Keys currently remain reserved for the lifetime of the database.
-Changing the selected template changes the payload. Omitted and explicit `classic` are equivalent,
-including retries against older jobs whose stored hashes predate template selection.
-
-### Template discovery and selection
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8000/api/templates
-```
-
-The catalogue has `default: "classic"` and three `items`:
-
-- **Classic** (`classic`): ivory paper, double gold border, formal typography.
-- **Modern** (`modern`): navy masthead, teal accents, a contemporary look.
-- **Minimal** (`minimal`): white paper, fine charcoal lines, restrained styling.
-
-All use landscape A4 vector PDFs and the same text validation, wrapping, font embedding,
-atomic writes, and per-recipient failure isolation. Presets add only a small metadata field to
-the stored request; they do not add browser rendering, network calls, or template files per recipient.
-To add another design, update the `TemplateId` type/catalogue, add its drawing branch in the
-renderer, and extend template tests. The frontend loads its options from the API.
-
-### Interactive documentation
-
-<p align="center">
-  <img src="docs/assets/api-docs.jpg" alt="Folio API documentation showing the product overview, deployment limits, and quick-start navigation" width="100%" />
-</p>
-
-`/docs` includes a quick start, validation/status rules, error meanings, optional authentication,
-and a live Swagger explorer with a ready-to-edit job example. Expand **POST /api/jobs**, click
-**Try it out**, select a template in the JSON, and **Execute**. Copy the returned job ID into the
-status and recipient endpoints. Requests operate on the real configured database.
-When `CERT_API_KEY` is enabled, click **Authorize** and enter its value (no header prefix needed).
-The Swagger assets are bundled locally; `/docs` does not need an external CDN or Node server.
-`/openapi.json` remains the machine-readable source of truth. ReDoc is an optional alternate view.
-
-Names must be nonempty strings of at most 120 characters; shared text has the same limit.
-Reference is at most 80 characters. Unknown fields, control characters, and implicit number-to-text
-conversion are rejected. Duplicate non-null emails (case-insensitive) are invalid within a job;
-identical names are allowed because different people can share a name. Recipients without email
-are not deduplicated.
-
-For rendering failures, inspect the worker logs and the failed recipient results. Correct the
-cause and submit those recipients as a new job with a new idempotency key. Automatic retries of
-per-recipient rendering errors are intentionally avoided: invalid fonts or a full disk should not
-cause an infinite retry loop. Infrastructure/database failures are logged and retried by the worker.
-
-## Architecture and processing flow
-
-**Submission:** validate shared details and each recipient → persist job and rows atomically → return ID.
-
-**Generation:** claim one recipient → generate PDF outside the transaction → record outcome → continue.
-
-**Delivery:** poll progress → retrieve paginated outcomes → preview/download PDFs or the completed batch ZIP.
-
-<details>
-<summary><strong>Project structure, persistence, and recovery guarantees</strong></summary>
-
-The code is intentionally small and uses Python's `sqlite3` directly. SQL is parameterized;
-each API request/worker operation gets its own connection. There is no ORM or broker to learn
-before explaining the implementation.
-
-- `app/main.py`: HTTP routes, authentication, body limit, response models, lifecycle.
-- `app/schemas.py`: Pydantic envelope and recipient validation.
-- `app/templates.py`: typed, fixed design catalogue used by validation and discovery.
-- `app/config.py`: immutable settings from environment variables.
-- `app/db.py`: relational schema, connection/transaction handling, storage locations.
-- `app/service.py`: job creation, idempotency, result mapping, ZIP construction.
-- `app/worker.py`: queue polling, recovery, PDF generation, progress bookkeeping.
-- `app/renderer.py`: vector certificate layout and text fitting.
-- `app/static/`: responsive HTML/CSS/JavaScript frontend, served by FastAPI.
-  The self-hosted PDF.js modules and Apache license are under `app/static/vendor/`.
-- `tests/`: API, validation, PDF/ZIP, recovery, failure isolation, and worker process tests.
-- `examples/job.json`: ready-to-submit batch, including an invalid row.
-- `scripts/`: sample certificate and repeatable local benchmark.
-
-The API validates the shared fields, then validates each recipient separately. A single database
-transaction inserts the job and its recipients, so clients never see a partially submitted batch.
-An optional unique idempotency key protects even concurrent retries.
-
-The separate worker acquires an OS-backed file lock and polls the oldest queued/running job. It
-marks one recipient `PROCESSING`, closes the transaction, writes that PDF, then commits its outcome
-and increments the job counters. Each recipient failure is caught independently. Once all outcomes
-are recorded, the worker marks the job terminal.
-
-PDFs are written to a temporary file in the final directory and atomically replaced. The database
-records success only after the complete file exists. On restart, the worker resets interrupted
-`PROCESSING` rows to `QUEUED` and regenerates them using the same certificate UUID. Completed rows
-are skipped. A crash after writing a PDF but before recording success may regenerate that one PDF;
-this is **at-least-once processing with a stable output path**, not an exactly-once transaction
-between the filesystem and database.
-
-SQLite uses WAL, foreign keys, a 30-second busy timeout, and full synchronous commits. Short write
-transactions allow concurrent polling. Queue/result indexes avoid scanning all recipients for every
-worker step. A second worker on the same data directory exits immediately; this is deliberately a
-single-worker design rather than a distributed queue.
-
-ZIPs contain only successful PDFs named by certificate UUID, avoiding filename collisions and
-path traversal. They are built on disk, guarded by a file lock, atomically published, and cached.
-PDFs already contain compressed streams, so ZIP uses storage rather than recompressing them.
-`FileResponse` sends files without reading the whole archive into Python memory.
-
-</details>
-
-## Design choices and resource use
-
-**FastAPI and Pydantic:** typed validation, automatic OpenAPI, and interactive documentation make
-the API easy to test and explain.
-
-**SQLite:** free, relational, durable, and adequate for one machine and one worker. PostgreSQL
-would be preferable for multiple hosts and many concurrent writers, but requires a separate
-database deployment and a persistence-layer migration. This implementation does not pretend
-SQLite can serve as a distributed queue.
-
-**ReportLab:** vector PDFs generated directly in Python, with no Chromium, browser process,
-HTML rendering service, or raster background needed. One page is generated at a time. The default
-template uses packaged Bitstream Vera fonts, including font embedding and accented Latin names.
-Unsupported glyphs fail with a clear error rather than silently producing missing-character boxes.
-Shared unsupported text rejects the request; recipient unsupported text fails only that recipient.
-Complex scripts such as Devanagari need additional fonts **and shaping support**; simply changing
-a font is not a complete multilingual solution.
-
-**Separate durable worker:** the queue survives API restarts and long jobs don't execute in the
-API's event loop. FastAPI `BackgroundTasks` is simpler for small ephemeral work, but process-local
-tasks alone do not provide this persisted recovery model. Celery/Redis or a PostgreSQL queue would
-be useful for distributed workers; for this assignment they add deployment and debugging overhead.
-See the [FastAPI background task documentation](https://fastapi.tiangolo.com/tutorial/background-tasks/)
-and [ReportLab PDF generation documentation](https://docs.reportlab.com/reportlab/userguide/ch2_graphics/).
-
-**Bounded batches:** default 10,000 recipients and 8 MiB JSON per request. Submission parses one
-bounded batch; rendering does not load the whole batch into memory. For larger datasets, divide
-the data into separate requests with unique idempotency keys. One worker limits CPU use and has
-constant rendering memory with respect to the number of recipients. Files consume disk proportional
-to the certificate count; cached ZIPs require additional space.
-
-There is no claim of unlimited capacity. Operators must size storage and control total accepted
-work. A body limit is per request, not a global memory/queue quota. For Internet exposure, configure
-an API key, TLS, a reverse-proxy connection/rate limit, persistent local storage, disk monitoring,
-and a process supervisor. The optional shared API key is not multi-tenant ownership/authentication.
-SQLite and file locks should not be placed on network/cloud-synced storage in deployment.
-
-## Configuration
-
-Both processes read the same environment variables; `.env.example` documents them. `.env` is not
-automatically loaded by Python.
-
-- `CERT_DATA_DIR`: data directory, default `./data` relative to the working directory.
-- `CERT_MAX_RECIPIENTS`: recipients per request, default `10000` (hard schema cap `100000`).
-- `CERT_MAX_BODY_BYTES`: JSON body limit, default `8388608`.
-- `CERT_POLL_SECONDS`: worker idle/error wait, default `1`.
-- `CERT_API_KEY`: optional shared key; all `/api/` endpoints require `X-API-Key` when set.
-
-PowerShell example (set in **both terminals**):
-
-```powershell
-$env:CERT_DATA_DIR = 'C:\certificate-data'
-$env:CERT_API_KEY = 'replace-with-a-long-random-secret'
-```
-
-When a key is enabled, add `-Headers @{ 'X-API-Key' = 'your-key' }` to requests, or
-`-H 'X-API-Key: your-key'` with curl. In the docs explorer, click **Authorize** and enter its value.
-
-<details>
-<summary><strong>Storage layout and backup guidance</strong></summary>
-
-Generated storage layout:
-
-```text
-data/
-  certificates.sqlite3
-  certificates.sqlite3-wal
-  certificates.sqlite3-shm
-  worker.lock
-  certificates/<job-uuid>/<certificate-uuid>.pdf
-  archives/<job-uuid>.zip
-```
-
-Stop both processes before a simple filesystem backup, and back up the database and PDFs together.
-Alternatively use SQLite's online backup API for the database and coordinate the PDF snapshot.
-Do not copy only the main database file while WAL writes are active.
-
-</details>
-
-## Testing and quality checks
+On October 9, 2026, the local suite passed **51 tests**, with one PostgreSQL-only case skipped
+locally. Hosted CI passed the Python checks and PostgreSQL integration test. The badge above
+links to the current workflow status.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
@@ -534,136 +314,69 @@ Do not copy only the main database file while WAL writes are active.
 .\.venv\Scripts\python.exe -m ruff format --check .
 ```
 
-**Latest local verification: 50 tests passed**, with lint and formatting checks passing.
-Tests use isolated temporary databases, not your development data. They cover creation, partial
-progress, envelope/recipient validation, duplicate email handling, failure isolation, real PDF
-contents, accented names, ZIP retrieval/cache, missing files, pagination, authentication, body/batch
-limits, sequential/concurrent idempotency, restart recovery, and the worker CLI/exclusive lock.
-The included GitHub Actions workflow is configured for Python 3.11 and 3.12; this is not a claim
-of an already-passing hosted CI run. Templates, legacy compatibility, and the documentation/OpenAPI
-contract are also tested.
+Coverage includes validation, duplicate emails, partial progress, isolated renderer failures,
+real PDF contents, templates, ZIP retrieval, pagination, authentication, body limits, concurrent
+idempotency, restart recovery, and worker locking. The PostgreSQL test deletes the local PDF
+cache, restarts the app, and verifies restored PDF/ZIP contents.
 
-<details>
-<summary><strong>Generate sample PDFs and reproduce the local benchmark</strong></summary>
+The live deployment was also checked for example generation, PDF preview, PDF/ZIP downloads,
+OpenAPI/docs, and identical saved PDFs after backend redeployment. Automated tests and a live
+walkthrough provide different kinds of evidence; both are reproducible.
 
-Generate a sample PDF:
+## Understand and extend the code
 
-```powershell
-.\.venv\Scripts\python.exe scripts/create_sample.py
-```
+Follow one request through these files:
 
-This writes `output/pdf/sample-classic.pdf`. Add `--template modern` or `--template minimal`
-to generate the other designs; use `--stress` for maximum-length text QA. Text fitting is tested;
-all three sample layouts were rendered and visually reviewed. Run a real rendering benchmark:
+1. [schemas.py](app/schemas.py) — typed inputs, normalization, constraints, and outgoing models.
+2. [service.py](app/service.py) — per-row validation, canonical hashes, persistence, and archive creation.
+3. [worker.py](app/worker.py) — queue selection, recovery, rendering outcomes, and job completion.
+4. [renderer.py](app/renderer.py) — fonts, text fitting, template drawing, and atomic output.
+5. [db.py](app/db.py) / [postgres.py](app/postgres.py) — schema, transactions, locks, and PDF persistence/cache restoration.
+6. [main.py](app/main.py) — HTTP routes, middleware, authentication, and embedded-worker lifecycle.
+7. [app.js](app/static/app.js) — CSV input, fetch/polling, results, preview lifecycle, and native downloads.
 
-```powershell
-.\.venv\Scripts\python.exe scripts/benchmark.py --recipients 1000
-```
+### Design decisions worth explaining
 
-The benchmark reports job outcomes, elapsed time, throughput, Python allocation peak, and PDF disk
-size. It uses temporary storage and deletes its own test output on exit. `tracemalloc` changes
-performance and measures Python allocations, **not total process RAM**; these numbers are local
-measurements, not production throughput guarantees.
+- **Why return `202`?** Rendering an entire batch inside one request would tie generation to the HTTP connection. Persisting work first lets the client reconnect and track it later.
+- **Why validate rows separately?** `JobCreate.recipients` deliberately accepts raw rows; `create_job` applies `Recipient` validation to each. A malformed row therefore does not reject the batch.
+- **Why render outside the row-update transaction?** PDF work should not hold those database transactions open. The separate advisory-lock transaction coordinates cloud workers during a queue drain.
+- **Why two database modes?** SQLite makes local setup simple. PostgreSQL makes cloud state independent of Render's temporary disk. The adapter keeps the service queries shared.
+- **Why database-stored PDFs?** Small assignment PDFs can survive free-host restarts without a second storage service. Object storage and retention quotas would be better for a larger deployment.
+- **Why preserve UUID paths?** Recovered work writes to the same recipient path, so retries do not invent additional certificate identities.
+- **Why distinguish invalid and failed?** Bad input becomes `INVALID`; a valid row whose rendering fails becomes `FAILED`. Both count toward processed outcomes.
 
-Verified locally on Windows with Python 3.11.4 on 8 October 2026:
+### Practical changes and where they belong
 
-- The initial backend benchmark was accompanied by passing tests and quality checks. The current
-  expanded suite has 50 passing tests, as described above.
-- 1,000 actual PDFs generated with zero failures in 127.273 seconds with allocation tracing
-  enabled (7.86 certificates/second); submission took 0.413 seconds.
-- Peak traced Python allocations were 1.43 MiB; the PDFs occupied 40.11 MiB.
-- A live HTTP request, separate worker processing, progress/results, and ZIP download passed.
-- Both normal and maximum-length text layouts were rendered and visually inspected.
+- **Add a fourth design:** extend `TemplateId` and the catalogue in `templates.py`, add its drawing branch in `renderer.py`, and extend `test_templates.py`. The browser loads options from `/api/templates`.
+- **Add a recipient field:** update `Recipient` and response models, database schema/migration strategy, service persistence, renderer arguments if printed, frontend/CSV handling, and contract tests.
+- **Adjust capacity:** change environment limits and measure with `scripts/benchmark.py`; more workers require a new claim/coordination design, not just a process-count change.
+- **Change the layout:** edit `style.css` or the renderer's preset branch, then inspect desktop/mobile UI and normal/maximum-length PDF output.
+- **Investigate a stuck job:** inspect `pending` and recipient states, worker logs, database connectivity, and lock ownership. `/health` alone does not establish worker liveness.
 
-To measure throughput without the allocation tracer's overhead:
+For a useful review demonstration, submit one valid and one invalid recipient, explain the
+result counters, retry with the same idempotency key, and trace `Worker.run_once` to the renderer.
+Then make a small template change and show its generated PDF plus the relevant tests. The
+[technical guide](docs/TECHNICAL_GUIDE.md) includes a deeper code walkthrough and discussion questions.
 
-```powershell
-.\.venv\Scripts\python.exe scripts/benchmark.py --recipients 1000 --no-memory
-```
+## Scope and next steps
 
-This recorded performance run used Classic with allocation tracing; it does not benchmark every
-template or guarantee production throughput. Traced allocations are not total process RAM.
+This is a complete submission/demo with one PDF worker. Authentication is a shared optional key,
+not individual accounts or job ownership. Email is metadata, not an email-delivery feature.
+Packaged fonts support accented Latin text; broader script support needs suitable fonts and shaping.
+Per-request limits do not impose total storage quotas. Free hosting sleeps and has resource limits.
 
-</details>
+Possible extensions include organization accounts, ownership checks, rate/storage quotas,
+retention cleanup, controlled retries/cancellation, worker monitoring, verification URLs/QR codes,
+email delivery, object storage, and versioned schema migrations. Distributed processing would
+also require changing the single-worker claim strategy.
 
-## Docker (optional)
+## Documentation and project links
 
-Docker Compose runs the API and one worker against the same persistent named volume:
+- [Technical guide](docs/TECHNICAL_GUIDE.md) — libraries, data model, processing internals, and tradeoffs.
+- [API reference](docs/API_REFERENCE.md) — fields, responses, authentication, errors, and examples.
+- [Deployment guide](docs/DEPLOYMENT.md) — reproduce Vercel, Render, and Neon deployment.
+- [Submission sheet](docs/SUBMISSION.md) — live URLs and reviewer walkthrough.
+- [Sample JSON](examples/job.json) / [CSV](examples/recipients.csv) — reproducible inputs.
 
-```bash
-docker compose up --build -d
-docker compose logs -f worker
-docker compose down
-```
-
-Access the same `http://127.0.0.1:8000/docs` URL. Set `CERT_API_KEY` in your environment before
-starting Compose to enable authentication. Do not scale the worker service; the exclusive lock
-enforces one worker. `docker compose down` preserves the data volume; `down -v` removes it.
-Docker is optional; native Python is sufficient.
-Compose configuration was validated locally. The container build/runtime could not be tested
-because the local Docker daemon was not running.
-
-## Implementation walkthrough
-
-<details>
-<summary><strong>A concise walkthrough of the core backend decisions</strong></summary>
-
-1. Start with the request schema and explain envelope validation versus recipient validation.
-2. Show the two relational tables: one job owns many recipient outcomes.
-3. Explain why `202` means accepted rather than completed, and why a separate worker is needed.
-4. Walk through `Worker.run_once`: claim, render outside the transaction, record outcome, finish job.
-5. Demonstrate an invalid recipient and an injected renderer error in the tests.
-6. Explain restart recovery and the crash window between filesystem and database.
-7. Explain template selection, Classic backwards compatibility, shared fitting and font checks.
-8. Explain why one SQLite worker is appropriate here and when PostgreSQL/a distributed queue wins.
-
-</details>
-
-## Learning and future scope
-
-This project illustrates validation boundaries, durable job state, atomic writes, idempotent
-submission, failure isolation, vector PDF layout, and API integration testing. Study and modify
-the worker and renderer before the interview; they contain the core decisions you should explain.
-
-Possible future extensions—**not implemented features**:
-
-- Organization accounts, per-job ownership, and role-based access.
-- Admission/storage quotas, retention policies, and safe cleanup.
-- Controlled retries, cancellation, and worker monitoring.
-- Streamed ingestion for datasets beyond the bounded JSON API.
-- Certificate verification URLs/QR codes and optional email delivery.
-- Multilingual fonts/shaping and controlled template customization.
-- Object storage, schema migrations, and distributed PostgreSQL-backed workers.
-
-The current implementation prioritizes a complete, testable bulk-generation contract over
-additional infrastructure. Three fixed designs keep presentation flexible and the backend explainable.
-
-## Frontend development (optional)
-
-The application uses plain HTML, CSS, and JavaScript, so its interface is easy to inspect and
-modify. There is no React build or separate frontend process. Python setup is sufficient to run it;
-the required PDF.js and Swagger UI assets are included in the repository and Python package.
-
-For updating the viewer or formatting frontend source only, install Node.js 22.13+ (24 LTS is
-recommended), then:
-
-```bash
-npm ci --ignore-scripts --omit=optional
-npm run vendor
-npm run format
-```
-
-`npm run vendor` copies the pinned PDF.js and Swagger UI browser assets and licenses into the
-static directory. Their versions are locked in `package-lock.json`; Node is a development tool only.
-PDF.js is loaded only when opening a preview. It renders one certificate page, caps canvas density
-at 2x, and releases the document when the viewer closes. Native PDF/ZIP downloads remain streamed.
-The frontend has no runtime npm installation requirement, including inside Docker.
-
-Verification: all 50 tests passed after adding templates and the expanded docs, including preset
-generation, unknown-template rejection, legacy jobs/hashes, and the OpenAPI contract. A browser walkthrough
-verified example submission, live completion, CSV parsing (quoted commas and accented names),
-isolated invalid-recipient results, attention filtering, grid/list layouts, and actual PDF rendering.
-The enhanced docs were checked with live template discovery and a Minimal batch submission;
-the Modern frontend selection was also verified against its actual generated PDF.
-Desktop and mobile layouts were visually checked, including a 390px mobile viewport without
-horizontal page overflow.
+Project maintained under [rithinreddy0](https://github.com/rithinreddy0). Source code, commit history,
+tests, and deployment configuration are available in this repository for review.

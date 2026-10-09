@@ -11,13 +11,19 @@ Jump to [connection basics](#connection-basics), [authentication](#authenticatio
 ## Connection basics
 
 - Local base URL: `http://127.0.0.1:8000`.
+- Deployed backend base URL: `https://folio-aereo-api.onrender.com`.
+- Live explorer: [interactive API docs](https://aereo-assignment-certificate-genera.vercel.app/docs).
 - Request bodies: JSON, with `Content-Type: application/json`.
 - JSON endpoints return `application/json`; file endpoints return PDF or ZIP bytes.
 - All job/certificate path IDs are UUIDs. The recipient result's `id` is its certificate ID.
 - Invalid UUID syntax returns 422; a valid but unknown UUID returns 404.
 - Stored timestamps are UTC ISO strings; `issued_on` is a calendar date, not a timestamp.
 - Swagger: `/docs`; machine-readable schema: `/openapi.json`; alternate reference: `/redoc`.
-- Run the API **and** `python -m app.worker`, using the same data directory.
+- Locally, run the API **and** `python -m app.worker`, using the same data directory.
+  The deployed backend sets `CERT_EMBEDDED_WORKER=true` and starts its worker automatically.
+
+The public demo accepts at most 500 recipients per job; the local configured default is 10,000.
+The body-size default is 8 MiB in both modes. Cold starts on free hosting can delay the first request.
 
 Examples use representative IDs/times. Copy real returned IDs when testing. curl examples use
 POSIX-shell line continuations; on Windows use `curl.exe` with the appropriate shell syntax or
@@ -376,7 +382,8 @@ ZIP download is not a full storage-integrity check. Configure suitable client/pr
 { "status": "ok", "worker_required": true }
 ```
 
-`worker_required` describes the architecture. It does not prove that a worker is running,
+`worker_required` is `true` for a separately managed worker and `false` when the embedded worker
+is configured (as in the live deployment). It does not prove that a worker is running,
 that PDFs can be written, or that storage has enough free space.
 
 ## Error bodies

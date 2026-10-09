@@ -22,7 +22,7 @@
     <main>
       <section class="docs-hero">
         <div>
-          <p class="eyebrow">FASTAPI · SQLITE · REPORTLAB</p>
+          <p class="eyebrow">FASTAPI · POSTGRESQL / SQLITE · REPORTLAB</p>
           <h1>One request.<br />A whole batch of certificates.</h1>
           <p class="intro">
             Choose a design, submit your recipients, and let the worker do the
@@ -37,7 +37,7 @@
           <h2>Designed for bulk work.</h2>
           <p>
             Durable jobs. Isolated failures. PDFs generated one at a time. No
-            Redis or external service required.
+            Redis or external PDF service required.
           </p>
           <dl>
             <div>
@@ -45,8 +45,8 @@
               <dd>3 presets</dd>
             </div>
             <div>
-              <dt>Default batch limit</dt>
-              <dd>10,000 recipients</dd>
+              <dt>Configured batch limit</dt>
+              <dd id="docs-batch-limit">500 demo / 10,000 local default</dd>
             </div>
             <div>
               <dt>Default body limit</dt>
@@ -71,10 +71,11 @@
         <div class="steps">
           <article>
             <span class="step">01</span>
-            <h3>Start both processes</h3>
+            <h3>Connect to the backend</h3>
             <p>
-              Run these in separate terminals, with your virtual environment
-              active.
+              The deployed backend starts its worker automatically. For local
+              development, run these in separate terminals with your virtual
+              environment active.
             </p>
             <pre>python -m uvicorn app.main:app --port 8000</pre>
             <pre>python -m app.worker</pre>
@@ -117,8 +118,9 @@
           <span class="eyebrow">UNDERSTAND THE BACKEND</span>
           <h2>A small stack. A job you can follow.</h2>
           <p>
-            The API accepts work; the worker performs it. These are separate
-            Python processes sharing one SQLite database and data directory.
+            The API accepts work; the worker performs it. Local development uses
+            SQLite and a separate worker. The cloud deployment uses PostgreSQL
+            and an embedded worker managed by the API lifecycle.
           </p>
         </div>
         <div class="rules">
@@ -140,10 +142,12 @@
           <article>
             <h3>Persistence &amp; coordination</h3>
             <p>
-              <b>SQLite</b>, through Python's built-in <code>sqlite3</code>,
-              stores jobs and recipient outcomes. Short transactions and indexes
-              keep polling practical. <b>filelock</b> allows one worker per data
-              directory and prevents competing ZIP builders.
+              <b>Psycopg</b> connects the deployed backend to <b>PostgreSQL</b>,
+              which stores jobs, recipients, and PDF bytes. Local mode uses
+              <b>SQLite</b> through <code>sqlite3</code>.
+              <b>filelock</b> coordinates local writes; PostgreSQL advisory
+              locks coordinate cloud workers. Lost cloud PDF caches restore from
+              the database.
             </p>
             <small
               >Code: <code>app/db.py</code>, <code>app/service.py</code>, and
@@ -171,7 +175,7 @@
               tests; <b>pypdf</b> checks actual PDF text/pages.
               <b>Ruff</b> formats/lints Python. <b>Swagger UI</b> powers the
               explorer below; <b>Prettier</b> formats frontend/docs source. Node
-              is needed only to update development assets.
+              vendors browser assets and builds the Vercel static deployment.
             </p>
             <small
               >No Celery, Redis, React build, or paid PDF service is
@@ -181,7 +185,7 @@
         </div>
         <div class="processing-flow" aria-label="Batch processing flow">
           <span><b>1. Submit</b>JSON &amp; recipient validation</span><i>→</i>
-          <span><b>2. Persist</b>Job + rows in SQLite</span><i>→</i>
+          <span><b>2. Persist</b>Job + rows in the database</span><i>→</i>
           <span><b>3. Generate</b>One recipient at a time</span><i>→</i>
           <span><b>4. Retrieve</b>Progress, PDF &amp; ZIP</span>
         </div>
@@ -280,7 +284,8 @@
                   changed data returns 409. Use a fresh key for new work.
                 </li>
                 <li>
-                  Default limits: 10,000 recipients and 8 MiB body bytes. Both
+                  Local defaults: 10,000 recipients and 8 MiB body bytes. The
+                  public demo allows 500 recipients. Both configured limits
                   apply; the hard schema cap is 100,000 rows.
                 </li>
                 <li>
@@ -481,7 +486,7 @@
           <h2>Your API, ready to explore.</h2>
           <p>
             Expand an endpoint to see its inputs, response schema, and behavior.
-            Requests here operate on your real local database.
+            Requests here operate on the real configured backend and database.
           </p>
         </div>
         <div id="swagger-ui"></div>
