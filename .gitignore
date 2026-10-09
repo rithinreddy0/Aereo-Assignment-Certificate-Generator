@@ -10,4 +10,7 @@ tmp/
 .coverage
 htmlcov/
 node_modules/
+.vercel/
+.env.*
+!.env.example
 

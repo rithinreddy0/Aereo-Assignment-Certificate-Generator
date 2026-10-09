@@ -1,9 +1,11 @@
 """HTTP API. PDF work belongs to the separately running worker."""
 
+import asyncio
 import hashlib
 import hmac
 from contextlib import asynccontextmanager
 from pathlib import Path
+from threading import Event, Thread
 from typing import Annotated
 from uuid import UUID
 
@@ -64,12 +66,26 @@ class BodyLimitMiddleware:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
-    db = Database(settings.data_dir)
+    db = Database(settings.data_dir, settings.database_url)
 
     @asynccontextmanager
     async def lifespan(app):
         db.initialize()
-        yield
+        stopped = Event()
+        thread = None
+        if settings.embedded_worker:
+            from app.worker import run_worker
+
+            thread = Thread(
+                target=run_worker, args=(db, stopped, settings.poll_seconds), daemon=True
+            )
+            thread.start()
+        try:
+            yield
+        finally:
+            stopped.set()
+            if thread is not None:
+                await asyncio.to_thread(thread.join, 25)
 
     app = FastAPI(
         title="Bulk Certificate Generator",
@@ -231,7 +247,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """A database connectivity probe. `worker_required: true` is not a worker heartbeat."""
         with db.connect() as connection:
             connection.execute("SELECT 1").fetchone()
-        return {"status": "ok", "worker_required": True}
+        return {"status": "ok", "worker_required": not settings.embedded_worker}
 
     @app.post(
         "/api/jobs",
@@ -371,7 +387,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, "Certificate not found")
         if row["status"] != "COMPLETED":
             raise HTTPException(409, "Certificate is not available")
-        path = db.pdf_path(row["job_id"], row["id"])
+        path = db.ensure_pdf(row["job_id"], row["id"])
         if not path.is_file():
             raise HTTPException(410, "Certificate file is missing from storage")
         return FileResponse(

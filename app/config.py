@@ -12,6 +12,8 @@ class Settings:
     max_body_bytes: int = 8 * 1024 * 1024
     poll_seconds: float = 1.0
     api_key: str = ""
+    database_url: str = ""
+    embedded_worker: bool = False
 
     def __post_init__(self):
         if self.max_recipients < 1 or self.max_body_bytes < 1 or self.poll_seconds <= 0:
@@ -25,4 +27,6 @@ class Settings:
             max_body_bytes=int(os.getenv("CERT_MAX_BODY_BYTES", str(8 * 1024 * 1024))),
             poll_seconds=float(os.getenv("CERT_POLL_SECONDS", "1")),
             api_key=os.getenv("CERT_API_KEY", ""),
+            database_url=os.getenv("DATABASE_URL", ""),
+            embedded_worker=os.getenv("CERT_EMBEDDED_WORKER", "false").lower() == "true",
         )

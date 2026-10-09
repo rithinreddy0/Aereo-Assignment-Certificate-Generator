@@ -164,7 +164,7 @@ def build_archive(db: Database, job_id: str):
                         (job.id,),
                     )
                     for row in cursor:
-                        archive.write(db.pdf_path(job.id, row["id"]), f"{row['id']}.pdf")
+                        archive.write(db.ensure_pdf(job.id, row["id"]), f"{row['id']}.pdf")
                 temporary.replace(path)
             except BaseException:
                 temporary.unlink(missing_ok=True)

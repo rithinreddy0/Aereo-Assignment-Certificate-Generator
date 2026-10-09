@@ -23,6 +23,13 @@
 
 ## Overview
 
+### Deploy the complete application for free
+
+Use **Vercel** for the frontend, **Render Free** for FastAPI and the embedded
+worker, and **Neon Free PostgreSQL** for persistent jobs and PDFs. See the
+[deployment guide](docs/DEPLOYMENT.md) for configuration and submission checks.
+Local SQLite and the separate worker still work as before.
+
 Generating certificates should not require a request per participant or hide individual failures
 inside an opaque batch. Folio provides a **backend-first, asynchronous workflow**: the API accepts
 shared certificate information and recipients, persists a durable job, and returns an ID immediately.

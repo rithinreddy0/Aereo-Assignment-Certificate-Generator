@@ -128,7 +128,7 @@ function errorText(detail) {
 
 async function api(path, options = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 120000);
   try {
     const headers = {
       ...(options.body ? { "Content-Type": "application/json" } : {}),

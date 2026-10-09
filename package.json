@@ -3,6 +3,7 @@
   "private": true,
   "description": "Development tools only; Node is not required to run the application",
   "scripts": {
+    "build": "node scripts/build-frontend.mjs",
     "vendor": "node scripts/vendor-pdfjs.mjs",
     "format": "prettier --write app/static/*.html app/static/*.css app/static/*.js scripts/vendor-pdfjs.mjs"
   },

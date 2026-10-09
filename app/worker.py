@@ -6,7 +6,7 @@ import logging
 import signal
 from threading import Event
 
-from filelock import FileLock, Timeout
+from filelock import Timeout
 
 from app.config import Settings
 from app.db import Database
@@ -66,6 +66,8 @@ class Worker:
                 else "Certificate generation failed; consult worker logs"
             )
         with self.db.connect() as connection:
+            if error is None:
+                self.db.store_pdf(job["id"], recipient["id"], connection)
             connection.execute(
                 "UPDATE recipients SET status=?,error=? WHERE id=?",
                 ("FAILED" if error else "COMPLETED", error, recipient["id"]),
@@ -93,40 +95,41 @@ class Worker:
             logger.info("Job %s finished: %s", job_id, status)
 
 
+def run_worker(db, stopped, poll_seconds, once=False):
+    worker = Worker(db)
+    while not stopped.is_set():
+        try:
+            with db.worker_lock():
+                worker.recover()
+                while not stopped.is_set() and worker.run_once():
+                    pass
+            if once:
+                return
+        except Timeout:
+            if once:
+                raise
+        except Exception:
+            logger.exception("Worker infrastructure error; retrying")
+            if once:
+                raise
+        stopped.wait(poll_seconds)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--once", action="store_true", help="Drain queued work and exit")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     settings = Settings.from_env()
-    db = Database(settings.data_dir)
+    db = Database(settings.data_dir, settings.database_url)
     db.initialize()
     stopped = Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stopped.set())
-    lock = FileLock(str(db.data_dir / "worker.lock"))
     try:
-        lock.acquire(timeout=0)
+        run_worker(db, stopped, settings.poll_seconds, once=args.once)
     except Timeout:
         parser.exit(1, "Another worker owns this data directory. Run only one worker.\n")
-    try:
-        worker = Worker(db)
-        worker.recover()
-        logger.info("Worker ready; database: %s", db.path)
-        while not stopped.is_set():
-            try:
-                did_work = worker.run_once()
-            except Exception:
-                logger.exception("Worker infrastructure error; recovering before retry")
-                stopped.wait(settings.poll_seconds)
-                worker.recover()
-                continue
-            if not did_work:
-                if args.once:
-                    break
-                stopped.wait(settings.poll_seconds)
-    finally:
-        lock.release()
 
 
 if __name__ == "__main__":
